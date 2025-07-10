@@ -1,0 +1,27 @@
+# LANGKAH-LANGKAH INSTALASI
+
+1. npm init (ikuti sesuai kebutuhan)
+2. npm install joi (validasi)
+3. npm install express
+4. npm install --save-dev @types/express
+5. npm install --save-dev prisma
+6. npm install winston (opsional)
+7. npm install bcrypt
+8. npm install --save-dev @types/bcrypt
+9. npm install uuid
+10. npm install --save-dev @types/uuid
+11. npm install --save-dev jest @types/jest
+12. npm install --save-dev babel-jest @babel/preset-env
+13. npm install --save-dev supertest @types/supertest
+14. npx prisma init
+
+# ALUR BACKEND 
+1. siapkan validasi dari form (folder validation)
+2. buat service fungsi dan gunakan validasi disitu (folder service)
+3. service wajib return data sebagai tanda apakah sukses
+4. buat controller untuk menghandle error atau tidaknya suatu service (folder controller)
+5. setelah semua ok, maka buat api untuk menghandle response json (folder route)
+6. daftarkan route ke application/web,js
+
+link lengkap : https://youtu.be/6v8JXecArqE?si=uFzpT15e7NA6zeRH
+ 

@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User{
+  id Int @id @default(autoincrement())
+  username String @unique //dari form body
+  password String //dari form body
+  name String //dari form body
+  email String? @unique //dari form body
+  phone String? //dari form body
+  nik String? //dari form body
+  photoPath String? //dari form body
+  role String //dari form body
+  adminId Int? //dari form body (search nama admin)
+  admin User? @relation("AdminToEmployees", fields: [adminId], references: [id])
+  managed User[] @relation("AdminToEmployees")
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  histories UserHistory[] @relation("UserHistories")
+  token UserToken[] @relation("UserLoginManagement")
+  @@map("users")
+  @@index([id])
+}
+
+model UserHistory{
+  id Int @id @default(autoincrement())
+  description String
+  userId Int
+  user User @relation("UserHistories", fields: [userId], references: [id])
+  updatedAt DateTime @default(now())
+}
+
+model UserToken {
+  id         Int   @id @default(autoincrement())
+  user       User     @relation("UserLoginManagement", fields: [userId], references: [id])
+  userId     Int
+  token      String   @unique
+  lastActive DateTime
+  expiresIn  Int      // dalam detik
+  createdAt  DateTime @default(now())
+}
