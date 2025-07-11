@@ -1,32 +1,29 @@
 import { prismaClient } from "../application/database.js";
 
-export const authMiddleware = async (req, res, next) => {
-    const token = req.get("Authorization");
+export const authMiddleware = async (req, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) throw new ResponseError(401, "Token tidak ditemukan");
 
-    if (!token) {
-        return res.status(401).json({ errors: "Unauthorized" }).end();
+    const token = authHeader.split(" ")[1];
+
+    const userToken = await prismaClient.userToken.findUnique({
+        where: { token },
+        include: { user: true }
+    });
+
+    if (!userToken) throw new ResponseError(401, "Token tidak valid");
+
+    const now = new Date();
+    const expiredAt = new Date(userToken.createdAt.getTime() + userToken.expiresIn * 1000);
+    if (now > expiredAt) {
+        throw new ResponseError(401, "Token sudah kadaluarsa");
     }
 
-    try {
-        // Fetch user with the given token
-        const user = await prismaClient.user.findFirst({
-            where: { token: token },
-            select: {
-                userId: true,
-                username: true,
-                token: true
-            }
-        });
+    req.user = {
+        id: userToken.user.id,
+        role: userToken.user.role,
+        username: userToken.user.username
+    };
 
-        // If no user found, return unauthorized
-        if (!user) {
-            return res.status(401).json({ errors: "Unauthorized" }).end();
-        }
-
-        // Attach user data to request object
-        req.user = user;
-        next();
-    } catch (error) {
-        return res.status(500).json({ errors: "Internal Server Error" }).end();
-    }
+    next();
 };

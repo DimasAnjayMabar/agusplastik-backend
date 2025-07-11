@@ -1,7 +1,7 @@
 import Joi from 'joi'
 
 // REGISTRASI
-const registerAdmin = Joi.object({
+const registerAdminValidation = Joi.object({
     username : Joi.string().max(20).required(),
     password : Joi.string().min(6).max(20).required(),
     name : Joi.string().max(100).required(),
@@ -9,11 +9,10 @@ const registerAdmin = Joi.object({
     phone : Joi.string().max(20).optional().allow(null), 
     nik : Joi.string().max(50).required(),
     photoPath : Joi.string().optional().allow(null),
-    role : Joi.string().valid("admin").required(), 
     adminId : Joi.string().optional().allow(null)
 })
 
-const registerGudang = Joi.object({
+const registerStaff = Joi.object({
     username : Joi.string().max(20).required(),
     password : Joi.string().min(6).max(20).required(),
     name : Joi.string().max(100).required(),
@@ -21,20 +20,6 @@ const registerGudang = Joi.object({
     phone : Joi.string().max(20).optional().allow(null), 
     nik : Joi.string().max(50).required(),
     photoPath : Joi.string().optional().allow(null),
-    role : Joi.string().valid("gudang").required(), 
-    adminId : Joi.string().optional().allow(null)
-})
-
-const registerKasir = Joi.object({
-    username : Joi.string().max(20).required(),
-    password : Joi.string().min(6).max(20).required(),
-    name : Joi.string().max(100).required(),
-    email : Joi.string().max(100).email().optional().allow(null), 
-    phone : Joi.string().max(20).optional().allow(null), 
-    nik : Joi.string().max(50).required(),
-    photoPath : Joi.string().optional().allow(null),
-    role : Joi.string().valid("kasir").required(), 
-    adminId : Joi.string().optional().allow(null)
 })
 
 // LOGIN 
@@ -44,6 +29,15 @@ const login = Joi.object({
     role : Joi.string().valid("admin", "kasir", "gudang").required()
 })
 
+// UPDATE STAFF
+const updateStaffValidation = Joi.object({
+    name : Joi.string().max(100).optional(),
+    email : Joi.string().max(100).email().optional().allow(null), 
+    phone : Joi.string().max(20).optional().allow(null), 
+    nik : Joi.string().max(50).optional(),
+    photoPath : Joi.string().optional().allow(null),
+})
+
 export{
-    registerAdmin, registerGudang, registerKasir, login
+    registerAdminValidation, registerStaff, updateStaffValidation, login
 }

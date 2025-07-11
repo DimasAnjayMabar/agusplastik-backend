@@ -1,6 +1,6 @@
 # LANGKAH-LANGKAH INSTALASI
 
-1. npm init (ikuti sesuai kebutuhan)
+1. npm init (ikuti sesuai kebutuhan, jika clone dari github ini, tidak usah)
 2. npm install joi (validasi)
 3. npm install express
 4. npm install --save-dev @types/express
@@ -13,7 +13,7 @@
 11. npm install --save-dev jest @types/jest
 12. npm install --save-dev babel-jest @babel/preset-env
 13. npm install --save-dev supertest @types/supertest
-14. npx prisma init
+14. npx prisma init (tidak diperlukan jika cloning dari github)
 
 # ALUR BACKEND 
 1. siapkan validasi dari form (folder validation)

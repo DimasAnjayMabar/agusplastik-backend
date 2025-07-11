@@ -1,0 +1,12 @@
+joi
+express
+--save-dev @types/express
+--save-dev prisma
+winston
+bcrypt
+--save-dev @types/bcrypt
+uuid
+--save-dev @types/uuid
+--save-dev jest @types/jest
+--save-dev babel-jest @babel/preset-env
+--save-dev supertest @types/supertest
