@@ -8,7 +8,7 @@ import { registerStaff, registerAdminValidation, updateStaffValidation, login } 
 // ================================= REGISTRASI =================================
 const registerAdmin = async (request) => { // HANYA WEBSITE ADMIN
   try{
-    const register = validate(registerAdminValidation, request) 
+    const register = validate(registerAdminValidation, request.body) 
 
     const findExistingUser = await prismaClient.user.count({
         where : {
@@ -40,7 +40,7 @@ const registerAdmin = async (request) => { // HANYA WEBSITE ADMIN
 
 const registerGudang = async (request) => { // HANYA WEBSITE ADMIN
   try{
-     const register = validate(registerStaff, request);
+     const register = validate(registerStaff, request.body);
 
     const findExistingUser = await prismaClient.user.count({
         where: { username: register.username }
@@ -59,7 +59,6 @@ const registerGudang = async (request) => { // HANYA WEBSITE ADMIN
     const result = await prismaClient.user.create({
         data: register,
         select: {
-            id: true,
             username: true,
             name: true,
             role: true,
@@ -76,7 +75,7 @@ const registerGudang = async (request) => { // HANYA WEBSITE ADMIN
 
 const registerKasir = async (request) => { // HANYA WEBSITE ADMIN
   try{
-    const register = validate(registerStaff, request);
+    const register = validate(registerStaff, request.body);
 
     const findExistingUser = await prismaClient.user.count({
         where: { username: register.username }
@@ -95,7 +94,6 @@ const registerKasir = async (request) => { // HANYA WEBSITE ADMIN
     const result = await prismaClient.user.create({
         data: register,
         select: {
-            id: true,
             username: true,
             name: true,
             role: true,
@@ -155,7 +153,6 @@ const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Login gagal", e)
   }
-  
 }
 
 const loginGudang = async (request) => {
@@ -347,7 +344,7 @@ const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
       throw new ResponseError(403, "Hanya admin yang dapat mengubah data staff");
     }
 
-    const updateRequest = validate(updateStaffValidation, req);
+    const updateRequest = validate(updateStaffValidation, req.body);
 
     const staff = await prismaClient.user.findFirst({
       where: {
@@ -456,7 +453,7 @@ const softDeleteStaff = async (req) => {// HANYA UNTUK WEBSITE ADMIN
   }
 };
 
-const deactivateSelfAdmin = async (req) => {// HANYA UNTUK WEBSITE ADMIN
+const deactivateSelfAdmin = async (req) => { // HANYA UNTUK WEBSITE ADMIN
   try {
     const currentAdmin = req.user;
 
@@ -464,19 +461,26 @@ const deactivateSelfAdmin = async (req) => {// HANYA UNTUK WEBSITE ADMIN
       throw new ResponseError(403, "Hanya admin yang dapat menonaktifkan akunnya");
     }
 
+    // Nonaktifkan akun admin
     await prismaClient.user.update({
       where: { id: currentAdmin.id },
       data: { isActive: false }
     });
 
+    // Hapus semua token milik admin ini
+    await prismaClient.userToken.deleteMany({
+      where: { userId: currentAdmin.id }
+    });
+
+    // Simpan riwayat
     await prismaClient.userHistory.create({
       data: {
         userId: currentAdmin.id,
-        description: `Admin '${currentAdmin.name}' menonaktifkan akunnya sendiri melalui Settings`
+        description: `Admin '${currentAdmin.username}' menonaktifkan akunnya sendiri melalui Settings`
       }
     });
 
-    return { message: "Akun Anda telah dinonaktifkan" };
+    return { message: "Akun Anda telah dinonaktifkan dan token Anda telah dihapus" };
   } catch (e) {
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Gagal menonaktifkan akun", e);

@@ -3,7 +3,7 @@ import userService from "../service/admin_service.js"
 // ================================= REGISTRASI =================================
 const registerAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.registerAdmin(req.body)
+        const result = await userService.registerAdmin(req)
 
         res.status(200).json({
             data : result
@@ -15,7 +15,7 @@ const registerAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const registerGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.registerGudang(req.body)
+        const result = await userService.registerGudang(req)
 
         res.status(200).json({
             data : result
@@ -27,7 +27,7 @@ const registerGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const registerKasir = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.registerKasir(req.body)
+        const result = await userService.registerKasir(req)
 
         res.status(200).json({
             data : result
@@ -76,7 +76,7 @@ const loginKasir = async (req, res, next) => {
 // ================================= GET ALL =================================
 const getAllStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.getAllStaff(req.body)
+        const result = await userService.getAllStaff(req)
 
         res.status(200).json({
             data : result
@@ -89,7 +89,7 @@ const getAllStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= GET BY ID =================================
 const getStaffById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.getStaffById(req.body)
+        const result = await userService.getStaffById(req)
 
         res.status(200).json({
             data : result
@@ -102,7 +102,7 @@ const getStaffById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= UPDATE =================================
 const updateStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{ 
-        const result = await userService.updateStaff(req.body)
+        const result = await userService.updateStaff(req)
 
         res.status(200).json({
             data : result
@@ -115,7 +115,7 @@ const updateStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.softDeleteStaff(req.body)
+        const result = await userService.softDeleteStaff(req)
 
         res.status(200).json({
             data : result
@@ -127,7 +127,7 @@ const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const deactivateSelfAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.deactivateSelfAdmin(req.body)
+        const result = await userService.deactivateSelfAdmin(req)
 
         res.status(200).json({
             data : result

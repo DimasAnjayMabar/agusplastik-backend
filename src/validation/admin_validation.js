@@ -25,8 +25,7 @@ const registerStaff = Joi.object({
 // LOGIN 
 const login = Joi.object({
     username : Joi.string().max(20).required(),
-    password : Joi.string.max(20).required(), 
-    role : Joi.string().valid("admin", "kasir", "gudang").required()
+    password : Joi.string().max(20).required(), 
 })
 
 // UPDATE STAFF
