@@ -13,25 +13,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
+model User {
   id Int @id @default(autoincrement())
-  username String @unique //dari form body
-  password String //dari form body
-  name String //dari form body
-  email String? @unique //dari form body
-  phone String? //dari form body
-  nik String? //dari form body
-  photoPath String? //dari form body
-  role String //dari form body
-  adminId Int? //dari form body (search nama admin)
-  admin User? @relation("AdminToEmployees", fields: [adminId], references: [id])
-  managed User[] @relation("AdminToEmployees")
+  username String @unique
+  password String
+  name String
+  email String? @unique
+  phone String?
+  nik String?
+  photoPath String?
+  role String
   isActive Boolean @default(true)
   createdAt DateTime @default(now())
   histories UserHistory[] @relation("UserHistories")
   token UserToken[] @relation("UserLoginManagement")
-  @@map("users")
-  @@index([id])
+
+  // Relasi ke toko tempat dia bekerja
+  shopId Int?
+  shop Shop? @relation("UserWorkplace", fields: [shopId], references: [id])
+
+  // Relasi ke toko-toko yang dia kelola (sebagai admin)
+  shopsManaged Shop[] @relation("ShopAdmin")
+}
+
+model Shop {
+  id Int @id @default(autoincrement())
+  name String
+  address String
+
+  // Staff yang bekerja di toko ini
+  users User[] @relation("UserWorkplace")
+
+  // Admin dari toko ini
+  adminId Int?
+  admin User? @relation("ShopAdmin", fields: [adminId], references: [id])
 }
 
 model UserHistory{

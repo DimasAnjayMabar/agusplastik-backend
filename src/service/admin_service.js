@@ -155,98 +155,6 @@ const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
   }
 }
 
-const loginGudang = async (request) => {
-  try{
-    const loginrequest = validate(login, request);
-
-    const user = await prismaClient.user.findUnique({
-      where: { username: loginrequest.username },
-      select: {
-        id: true,
-        username: true,
-        password: true,
-        role: true,
-        isActive: true,
-      },
-    });
-
-    if (!user || !user.isActive) {
-      throw new ResponseError(401, "Username atau password salah");
-    }
-
-    const passwordIsValid = await bcrypt.compare(loginrequest.password, user.password);
-    if (!passwordIsValid) {
-      throw new ResponseError(401, "Username atau password salah");
-    }
-
-    if (user.role !== "gudang" || user.role !== "admin") {
-      throw new ResponseError(403, "Akses hanya untuk admin dan pegawai gudang");
-    }
-
-    const token = uuid();
-
-    await prismaClient.userToken.create({
-      data: {
-        userId: user.id,
-        token: token,
-        lastActive: new Date(),
-        expiresIn: 7 * 24 * 60 * 60, 
-      },
-    });
-
-    return { token };
-  }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Login gagal", e)
-  }
-}
-
-const loginKasir = async (request) => {
-  try{
-    const loginrequest = validate(login, request);
-
-    const user = await prismaClient.user.findUnique({
-      where: { username: loginrequest.username },
-      select: {
-        id: true,
-        username: true,
-        password: true,
-        role: true,
-        isActive: true,
-      },
-    });
-
-    if (!user || !user.isActive) {
-      throw new ResponseError(401, "Username atau password salah");
-    }
-
-    const passwordIsValid = await bcrypt.compare(loginrequest.password, user.password);
-    if (!passwordIsValid) {
-      throw new ResponseError(401, "Username atau password salah");
-    }
-
-    if (user.role !== "kasir" || user.role !== "admin") {
-      throw new ResponseError(403, "Akses hanya untuk admin dan pegawai gudang");
-    }
-
-    const token = uuid();
-
-    await prismaClient.userToken.create({
-      data: {
-        userId: user.id,
-        token: token,
-        lastActive: new Date(),
-        expiresIn: 7 * 24 * 60 * 60, 
-      },
-    });
-
-    return { token };
-  }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Login gagal", e)
-  }
-}
-
 // ================================= GET ALL ================================= 
 const getAllStaff = async (request) => {// HANYA WEBSITE ADMIN
   try{
@@ -328,7 +236,6 @@ const getStaffById = async (request) => {// HANYA WEBSITE ADMIN
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Gagal mengambil data staff", e)
   }
-  
 };
 
 // ================================= UPDATE =================================
@@ -410,7 +317,7 @@ const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
 };
 
 // ================================= SOFT DELETE =================================
-const softDeleteStaff = async (req) => {// HANYA UNTUK WEBSITE ADMIN
+const softDeleteStaff = async (req) => {
   try{
     const staffId = parseInt(req.params.id);
     if (isNaN(staffId)) {
@@ -453,7 +360,8 @@ const softDeleteStaff = async (req) => {// HANYA UNTUK WEBSITE ADMIN
   }
 };
 
-const deactivateSelfAdmin = async (req) => { // HANYA UNTUK WEBSITE ADMIN
+//================================= DEACTIVATE ACCOUNT =================================
+const deactivateSelfAdmin = async (req) => {
   try {
     const currentAdmin = req.user;
 
@@ -461,26 +369,36 @@ const deactivateSelfAdmin = async (req) => { // HANYA UNTUK WEBSITE ADMIN
       throw new ResponseError(403, "Hanya admin yang dapat menonaktifkan akunnya");
     }
 
-    // Nonaktifkan akun admin
+    const remainingStaff = await prismaClient.user.count({
+      where: {
+        adminId: currentAdmin.id,
+        role: { in: ['gudang', 'kasir'] },
+        isActive: true
+      }
+    });
+
+    if (remainingStaff > 0) {
+      throw new ResponseError(400, "Tidak bisa menonaktifkan akun karena masih ada staff aktif di bawah admin ini. Harap transfer semua staff anda terlebih dahulu.");
+    }
+
     await prismaClient.user.update({
       where: { id: currentAdmin.id },
       data: { isActive: false }
     });
 
-    // Hapus semua token milik admin ini
     await prismaClient.userToken.deleteMany({
       where: { userId: currentAdmin.id }
     });
 
-    // Simpan riwayat
     await prismaClient.userHistory.create({
       data: {
         userId: currentAdmin.id,
-        description: `Admin '${currentAdmin.username}' menonaktifkan akunnya sendiri melalui Settings`
+        description: `Admin '${currentAdmin.username}' telah digantikan`
       }
     });
 
     return { message: "Akun Anda telah dinonaktifkan dan token Anda telah dihapus" };
+
   } catch (e) {
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Gagal menonaktifkan akun", e);
@@ -492,8 +410,6 @@ export default {
     registerGudang, 
     registerKasir, 
     loginAdmin, 
-    loginGudang, 
-    loginKasir, 
     getAllStaff, 
     getStaffById, 
     updateStaff, 

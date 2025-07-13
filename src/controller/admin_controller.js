@@ -49,29 +49,6 @@ const loginAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
         next(e)
     }
 }
-const loginGudang = async (req, res, next) => {
-    try{
-        const result = await userService.loginGudang(req.body)
-
-        res.status(200).json({
-            data : result
-        })
-    }catch(e){
-        next(e)
-    }
-}
-
-const loginKasir = async (req, res, next) => {
-    try{
-        const result = await userService.loginKasir(req.body)
-
-        res.status(200).json({
-            data : result
-        })
-    }catch(e){
-        next(e)
-    }
-}
 
 // ================================= GET ALL =================================
 const getAllStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
@@ -142,8 +119,6 @@ export default {
     registerGudang, 
     registerKasir, 
     loginAdmin, 
-    loginGudang, 
-    loginKasir, 
     getAllStaff, 
     getStaffById, 
     updateStaff, 
