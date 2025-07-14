@@ -43,3 +43,7 @@ const updateProduct = Joi.object({
     distributorId : Joi.number().integer().optional().allow(null),
     typeId : Joi.number().integer().optional().allow(null)
 })
+
+export{
+    login, createProduct, createDistributor, updateDistributor, updateDistributor
+}

@@ -13,7 +13,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ================================= MDOEL USER =================================
+// ================================= MODEL USER =================================
 model User {
   id       Int     @id @default(autoincrement())
   username String  @unique
@@ -40,6 +40,8 @@ model User {
   // Relasi sebagai pencatat gudang
   stockIns  StockIn[]  @relation("UserStockInCreatedBy")
   stockOuts StockOut[] @relation("UserStockOutCreatedBy")
+
+  Transaction Transaction[] @relation("WhoIsServing")
 }
 
 model Shop {
@@ -83,20 +85,22 @@ model Product {
   stock         Int
   barcode       String
   isActive      Boolean           @default(true)
-  distributor   Distributor?       @relation(fields: [distributorId], references: [id])
+  distributor   Distributor?       @relation("DistributedBy", fields: [distributorId], references: [id])
   distributorId Int?
-  type          Type              @relation(fields: [typeId], references: [id])
+  type          Type              @relation("ProductTypeOf", fields: [typeId], references: [id])
   typeId        Int
-  histories     ProductHistory[]
-  stockInDetails  StockInDetail[]
-  stockOutDetails StockOutDetail[]
+  histories     ProductHistory[] @relation("ProductHistories")
+  stockInDetails  StockInDetail[] @relation("WhatProductStockedIn")
+  stockOutDetails StockOutDetail[] @relation("WhatProductStockedOut")
+
+  transactionDetail TransactionDetail[] @relation("WhatProductSold")
 }
 
 model ProductHistory {
   id         Int      @id @default(autoincrement())
   description String
   updatedAt   DateTime @default(now())
-  product     Product  @relation(fields: [productId], references: [id])
+  product     Product  @relation("ProductHistories", fields: [productId], references: [id])
   productId   Int
 }
 
@@ -109,23 +113,23 @@ model Distributor {
   imagePath     String?
   address       String?
   isActive      Boolean              @default(true)
-  products      Product[]
-  histories     DistributorHistory[]
-  stockIns      StockIn[]
+  products      Product[] @relation("DistributedBy")
+  histories     DistributorHistory[] @relation("DistributorHistories")
+  stockIns      StockIn[] @relation("StockInBy")
 }
 
 model DistributorHistory {
   id           Int         @id @default(autoincrement())
   description  String
   updatedAt    DateTime    @default(now())
-  distributor  Distributor @relation(fields: [distributorId], references: [id])
+  distributor  Distributor @relation("DistributorHistories", fields: [distributorId], references: [id])
   distributorId Int
 }
 
 model Type {
   id       Int       @id @default(autoincrement())
   name     String
-  products Product[]
+  products Product[] @relation("ProductTypeOf")
 }
 
 model StockIn {
@@ -135,20 +139,20 @@ model StockIn {
   reason         String
   totalAmount    Int
   createdBy      Int
-  createdByUser  User            @relation("UserStockInCreatedBy", fields: [createdBy], references: [id])
+  user  User            @relation("UserStockInCreatedBy", fields: [createdBy], references: [id])
   distributorId  Int?
-  distributor    Distributor?    @relation(fields: [distributorId], references: [id])
+  distributor    Distributor?    @relation("StockInBy", fields: [distributorId], references: [id])
   sourceShopId   Int?
-  stockInDetails StockInDetail[]
+  stockInDetails StockInDetail[] @relation("StockInDetails")
 }
 
 model StockInDetail {
   id         Int      @id @default(autoincrement())
-  product    Product  @relation(fields: [productId], references: [id])
+  product    Product  @relation("WhatProductStockedIn", fields: [productId], references: [id])
   productId  Int
-  stockIn    StockIn  @relation(fields: [stockInId], references: [id])
+  stockIn    StockIn  @relation("StockInDetails", fields: [stockInId], references: [id])
   stockInId  Int
-  stock      Int
+  quantity      Int
   subtotal   Int
 }
 
@@ -159,19 +163,68 @@ model StockOut {
   reason          String
   totalAmount     Int
   createdBy       Int
-  createdByUser   User             @relation("UserStockOutCreatedBy", fields: [createdBy], references: [id])
+  user   User             @relation("UserStockOutCreatedBy", fields: [createdBy], references: [id])
   targetShopId    Int?
   transactionId   Int?
-  stockOutDetails StockOutDetail[]
+  stockOutDetails StockOutDetail[] @relation("StockOutDetails")
 }
 
 model StockOutDetail {
   id          Int       @id @default(autoincrement())
-  product     Product   @relation(fields: [productId], references: [id])
+  product     Product   @relation("WhatProductStockedOut", fields: [productId], references: [id])
   productId   Int
-  stockOut    StockOut  @relation(fields: [stockOutId], references: [id])
+  stockOut    StockOut  @relation("StockOutDetails", fields: [stockOutId], references: [id])
   stockOutId  Int
-  stock       Int
-  subtotal    Int
+  quantity       Int
+  subtotal    Decimal
 }
 
+// ================================= MODEL KASIR =================================
+model Transaction {
+  id Int @id @default(autoincrement())
+  invoice String
+  createdAt DateTime @default(now())
+  customerId Int
+  customer Customer @relation("WhoIsBuying", fields: [customerId], references: [id])
+  totalAmount Decimal
+  createdBy Int
+  staff User @relation("WhoIsServing", fields: [createdBy], references: [id])
+  payment String // qris, cash, transfer
+  status String // paid, refund
+  discountId Int
+  discount Discount @relation("WhatTransactionDiscount", fields: [discountId], references: [id])
+
+  transactionDetail TransactionDetail[] @relation("TransactionDetails")
+}
+
+model TransactionDetail{
+  id Int @id @default(autoincrement())
+  productId Int
+  product Product @relation("WhatProductSold", fields: [productId], references: [id])
+  transactionId Int 
+  transaction Transaction @relation("TransactionDetails", fields: [transactionId], references: [id])
+  quantity Int
+  subtotal Decimal
+  discountId Int
+  discount Discount @relation("WhatProductDiscount", fields: [discountId], references: [id])
+}
+
+model Customer{
+  id Int @id @default(autoincrement())
+  name String 
+  address String?
+  phone String?
+
+  Transaction Transaction[] @relation("WhoIsBuying")
+}
+
+model Discount {
+  id Int @id @default(autoincrement())
+  name String
+  percentDiscount Decimal
+  type String // hanya produk atau keseluruhan transaksi
+
+  Transaction Transaction[] @relation("WhatTransactionDiscount")
+
+  transactionDetail TransactionDetail[] @relation("WhatProductDiscount")
+}
