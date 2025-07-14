@@ -3,42 +3,10 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { registerStaff, registerAdminValidation, updateStaffValidation, login } from "../validation/admin_validation.js";
+import { registerStaff, updateStaffValidation, login } from "../validation/admin_validation.js";
 
 // ================================= REGISTRASI =================================
-const registerAdmin = async (request) => { // HANYA WEBSITE ADMIN
-  try{
-    const register = validate(registerAdminValidation, request.body) 
-
-    const findExistingUser = await prismaClient.user.count({
-        where : {
-            username : register.username
-        }
-    })
-
-    if(findExistingUser === 1){
-        throw new ResponseError(400, "Username terdaftar")
-    }
-
-    register.password = await bcrypt.hash(register.password, 10);
-
-    register.role = "admin";
-
-    const result = await prismaClient.user.create({
-        data : register,
-        select : {
-            username : true
-        }
-    })
-
-    return result
-  }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi admin", e)
-  }
-}
-
-const registerGudang = async (request) => { // HANYA WEBSITE ADMIN
+const registerGudang = async (request) => {
   try{
      const register = validate(registerStaff, request.body);
 
@@ -266,7 +234,7 @@ const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
     }
 
     const changes = [];
-    const fields = ['name', 'email', 'phone', 'nik', 'photoPath'];
+    const fields = ['name', 'email', 'phone', 'nik', 'photoPath', 'shopId'];
 
     for (const field of fields) {
       const oldValue = staff[field];
@@ -360,59 +328,12 @@ const softDeleteStaff = async (req) => {
   }
 };
 
-//================================= DEACTIVATE ACCOUNT =================================
-const deactivateSelfAdmin = async (req) => {
-  try {
-    const currentAdmin = req.user;
-
-    if (currentAdmin.role !== 'admin') {
-      throw new ResponseError(403, "Hanya admin yang dapat menonaktifkan akunnya");
-    }
-
-    const remainingStaff = await prismaClient.user.count({
-      where: {
-        adminId: currentAdmin.id,
-        role: { in: ['gudang', 'kasir'] },
-        isActive: true
-      }
-    });
-
-    if (remainingStaff > 0) {
-      throw new ResponseError(400, "Tidak bisa menonaktifkan akun karena masih ada staff aktif di bawah admin ini. Harap transfer semua staff anda terlebih dahulu.");
-    }
-
-    await prismaClient.user.update({
-      where: { id: currentAdmin.id },
-      data: { isActive: false }
-    });
-
-    await prismaClient.userToken.deleteMany({
-      where: { userId: currentAdmin.id }
-    });
-
-    await prismaClient.userHistory.create({
-      data: {
-        userId: currentAdmin.id,
-        description: `Admin '${currentAdmin.username}' telah digantikan`
-      }
-    });
-
-    return { message: "Akun Anda telah dinonaktifkan dan token Anda telah dihapus" };
-
-  } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal menonaktifkan akun", e);
-  }
-};
-
 export default {
-    registerAdmin, 
     registerGudang, 
     registerKasir, 
     loginAdmin, 
     getAllStaff, 
     getStaffById, 
     updateStaff, 
-    softDeleteStaff, 
-    deactivateSelfAdmin
+    softDeleteStaff
 }

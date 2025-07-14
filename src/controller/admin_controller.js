@@ -1,18 +1,6 @@
 import userService from "../service/admin_service.js"
 
 // ================================= REGISTRASI =================================
-const registerAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
-    try{
-        const result = await userService.registerAdmin(req)
-
-        res.status(200).json({
-            data : result
-        })
-    }catch(e){
-        next(e)
-    }
-}
-
 const registerGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
         const result = await userService.registerGudang(req)
@@ -102,26 +90,12 @@ const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     }
 }
 
-const deactivateSelfAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
-    try{
-        const result = await userService.deactivateSelfAdmin(req)
-
-        res.status(200).json({
-            data : result
-        })
-    }catch(e){
-        next(e)
-    }
-}
-
 export default {
-    registerAdmin, 
     registerGudang, 
     registerKasir, 
     loginAdmin, 
     getAllStaff, 
     getStaffById, 
     updateStaff, 
-    softDeleteStaff, 
-    deactivateSelfAdmin
+    softDeleteStaff
 }
