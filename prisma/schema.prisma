@@ -13,27 +13,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ================================= MDOEL USER =================================
 model User {
-  id Int @id @default(autoincrement())
-  username String @unique
+  id       Int     @id @default(autoincrement())
+  username String  @unique
   password String
-  name String
-  email String? @unique
-  phone String?
-  nik String?
-  photoPath String?
-  role String
+  name     String
+  email    String? @unique
+  phone    String?
+  nik      String?
+  imagePath String?
+  role     String
   isActive Boolean @default(true)
   createdAt DateTime @default(now())
+
   histories UserHistory[] @relation("UserHistories")
-  token UserToken[] @relation("UserLoginManagement")
+  token     UserToken[]   @relation("UserLoginManagement")
 
   // Relasi ke toko tempat dia bekerja
   shopId Int?
-  shop Shop? @relation("UserWorkplace", fields: [shopId], references: [id])
+  shop   Shop? @relation("UserWorkplace", fields: [shopId], references: [id])
 
   // Relasi ke toko-toko yang dia kelola (sebagai admin)
   shopsManaged Shop[] @relation("ShopAdmin")
+
+  // Relasi sebagai pencatat gudang
+  stockIns  StockIn[]  @relation("UserStockInCreatedBy")
+  stockOuts StockOut[] @relation("UserStockOutCreatedBy")
 }
 
 model Shop {
@@ -66,3 +72,106 @@ model UserToken {
   expiresIn  Int      // dalam detik
   createdAt  DateTime @default(now())
 }
+
+// ================================= MODEL GUDANG =================================
+model Product {
+  id            Int               @id @default(autoincrement())
+  name          String
+  buyPrice      Int
+  sellPrice     Int
+  imagePath     String?
+  stock         Int
+  barcode       String
+  isActive      Boolean           @default(true)
+  distributor   Distributor?       @relation(fields: [distributorId], references: [id])
+  distributorId Int?
+  type          Type              @relation(fields: [typeId], references: [id])
+  typeId        Int
+  histories     ProductHistory[]
+  stockInDetails  StockInDetail[]
+  stockOutDetails StockOutDetail[]
+}
+
+model ProductHistory {
+  id         Int      @id @default(autoincrement())
+  description String
+  updatedAt   DateTime @default(now())
+  product     Product  @relation(fields: [productId], references: [id])
+  productId   Int
+}
+
+model Distributor {
+  id            Int                  @id @default(autoincrement())
+  name          String
+  phone         String?
+  email         String?
+  ecommerceLink String?
+  imagePath     String?
+  address       String?
+  isActive      Boolean              @default(true)
+  products      Product[]
+  histories     DistributorHistory[]
+  stockIns      StockIn[]
+}
+
+model DistributorHistory {
+  id           Int         @id @default(autoincrement())
+  description  String
+  updatedAt    DateTime    @default(now())
+  distributor  Distributor @relation(fields: [distributorId], references: [id])
+  distributorId Int
+}
+
+model Type {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+}
+
+model StockIn {
+  id             Int             @id @default(autoincrement())
+  invoice        String
+  createdAt      DateTime        @default(now())
+  reason         String
+  totalAmount    Int
+  createdBy      Int
+  createdByUser  User            @relation("UserStockInCreatedBy", fields: [createdBy], references: [id])
+  distributorId  Int?
+  distributor    Distributor?    @relation(fields: [distributorId], references: [id])
+  sourceShopId   Int?
+  stockInDetails StockInDetail[]
+}
+
+model StockInDetail {
+  id         Int      @id @default(autoincrement())
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  Int
+  stockIn    StockIn  @relation(fields: [stockInId], references: [id])
+  stockInId  Int
+  stock      Int
+  subtotal   Int
+}
+
+model StockOut {
+  id              Int              @id @default(autoincrement())
+  invoice         String
+  createdAt       DateTime         @default(now())
+  reason          String
+  totalAmount     Int
+  createdBy       Int
+  createdByUser   User             @relation("UserStockOutCreatedBy", fields: [createdBy], references: [id])
+  targetShopId    Int?
+  transactionId   Int?
+  stockOutDetails StockOutDetail[]
+}
+
+model StockOutDetail {
+  id          Int       @id @default(autoincrement())
+  product     Product   @relation(fields: [productId], references: [id])
+  productId   Int
+  stockOut    StockOut  @relation(fields: [stockOutId], references: [id])
+  stockOutId  Int
+  stock       Int
+  subtotal    Int
+}
+
