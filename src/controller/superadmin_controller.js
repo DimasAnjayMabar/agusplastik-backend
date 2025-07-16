@@ -52,9 +52,9 @@ const getAllShop = async (req, res, next) => {
 }
 
 // ================================= GET BY ID =================================
-const getShopDetail = async (req, res, next) => { 
+const getShopAdmin = async (req, res, next) => { 
     try{
-        const result = await superadminService.getShopDetail(req)
+        const result = await superadminService.getShopAdmin(req)
 
         res.status(200).json({
             data : result
@@ -64,9 +64,9 @@ const getShopDetail = async (req, res, next) => {
     }
 }
 
-const getAdminById = async (req, res, next) => { 
+const getShopStaffs = async (req, res, next) => { 
     try{
-        const result = await superadminService.getAdminById(req)
+        const result = await superadminService.getShopStaffs(req)
 
         res.status(200).json({
             data : result
@@ -76,9 +76,9 @@ const getAdminById = async (req, res, next) => {
     }
 }
 
-const getStaffById = async (req, res, next) => { 
+const getShopProducts = async (req, res, next) => { 
     try{
-        const result = await superadminService.getStaffById(req)
+        const result = await superadminService.getShopProducts(req)
 
         res.status(200).json({
             data : result
@@ -180,9 +180,9 @@ export default {
   registerAdmin,
   loginSuperadmin, 
     getAllShop,
-    getShopDetail,
-  getAdminById, 
-  getStaffById,
+    getShopAdmin,
+  getShopStaffs, 
+  getShopProducts,
   updateAdmin, 
   updateStaff,
   softDeleteAdmin,

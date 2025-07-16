@@ -123,7 +123,25 @@ const loginSuperadmin = async (request) => {
 // ================================= GET ALL ================================= 
 const getAllShop = async (request) => {
   try {
+    const search = request.query.search || ""; // ambil query `search`, default kosong
+
     const shops = await prisma.shop.findMany({
+      where: {
+        OR: [
+          {
+            name: {
+              contains: search,
+              mode: "insensitive", // pencarian tidak case-sensitive
+            },
+          },
+          {
+            address: {
+              contains: search,
+              mode: "insensitive",
+            },
+          },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -151,7 +169,7 @@ const getAllShop = async (request) => {
 };
 
 // ================================= GET BY ID =================================
-const getShopDetail = async (request) => {
+const getShopAdmin = async (request) => {
   try {
     const { shopId } = request.params;
 
@@ -175,19 +193,6 @@ const getShopDetail = async (request) => {
             role: true
           },
         },
-        users: {
-          where: {
-            role: { not: "admin" }, // jika hanya ingin ambil pegawai, bukan admin
-          },
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            role: true,
-            email: true,
-            phone: true,
-          },
-        },
       },
     });
 
@@ -198,103 +203,87 @@ const getShopDetail = async (request) => {
     return shop;
   } catch (e) {
     if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil data toko");
+    throw new ResponseError(500, "Gagal mengambil admin toko");
   }
 };
 
-const getAdminById = async (request) => {
-  try{  
-    const staffId = parseInt(request.params.id);
+const getShopStaffs = async (request) => {
+  try {
+    const { shopId } = request.params;
 
-    if (isNaN(staffId)) {
-      throw new ResponseError(400, "ID tidak valid");
+    if (!shopId) {
+      throw new ResponseError(400, "Shop ID tidak boleh kosong");
     }
 
-    const staff = await prismaClient.user.findFirst({
+    const staffs = await prisma.user.findMany({
       where: {
-        id: staffId,
-        role: { in: ["admin"] },
-        isActive: true
+        shopId: parseInt(shopId),
+        role: { not: "admin" }
       },
       select: {
         id: true,
-        username: true,
         name: true,
+        username: true,
         role: true,
-        phone: true,
         email: true,
-        nik: true,
-        photoPath: true,
-        isActive: true,
-        shop: {
+        phone: true,
+      }
+    });
+
+    return {
+      shopId: parseInt(shopId),
+      staffs
+    };
+  } catch (e) {
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Gagal mengambil data pegawai toko");
+  }
+};
+
+const getShopProducts = async (request) => {
+  try {
+    const { shopId } = request.params;
+
+    if (!shopId) {
+      throw new ResponseError(400, "Shop ID tidak boleh kosong");
+    }
+
+    const shopProducts = await prisma.shopProduct.findMany({
+      where: {
+        shopId: parseInt(shopId)
+      },
+      select: {
+        stock: true,
+        product: {
           select: {
-            name: true
+            id: true,
+            name: true,
+            description: true,
+            price: true,
+            image: true,
+            createdAt: true,
+            updatedAt: true,
           }
         }
       }
     });
 
-    if (!staff) {
-      throw new ResponseError(404, "Staff tidak ditemukan");
-    }
+    // Format ulang agar data produk + stok jadi satu objek
+    const products = shopProducts.map((item) => ({
+      ...item.product,
+      stock: item.stock
+    }));
 
     return {
-      ...staff,
-      shopName: s.shop?.name || null,
-      shop: undefined
+      shopId: parseInt(shopId),
+      products
     };
-  }catch(e){
+  } catch (e) {
     if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil data staff", e)
+    throw new ResponseError(500, "Gagal mengambil data produk toko");
   }
 };
-
-const getStaffById = async (request) => {
-  try{  
-    const staffId = parseInt(request.params.id);
-
-    if (isNaN(staffId)) {
-      throw new ResponseError(400, "ID tidak valid");
-    }
-
-    const staff = await prismaClient.user.findFirst({
-      where: {
-        id: staffId,
-        role: { in: ["kasir", "gudang"] },
-        isActive: true
-      },
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        role: true,
-        phone: true,
-        email: true,
-        nik: true,
-        photoPath: true,
-        isActive: true,
-        shop: {
-          select: {
-            name: true
-          }
-        }
-      }
-    });
-
-    if (!staff) {
-      throw new ResponseError(404, "Staff tidak ditemukan");
-    }
-
-    return {
-      ...staff,
-      shop: undefined
-    };
-  }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil data staff", e)
-  }
-};
-
+                
 // ================================= UPDATE =================================
 const updateSuperadminProfile = async (req) => {
   try {
@@ -367,7 +356,7 @@ const updateSuperadminProfile = async (req) => {
 
 const updateAdmin = async (req) => {
   try{
-    const staffId = parseInt(req.params.id);
+    const staffId = parseInt(req.params);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID admin tidak valid");
     }
@@ -445,7 +434,7 @@ const updateAdmin = async (req) => {
 
 const updateStaff = async (req) => {
   try{
-    const staffId = parseInt(req.params.id);
+    const staffId = parseInt(req.params);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID staff tidak valid");
     }
@@ -522,9 +511,9 @@ const updateStaff = async (req) => {
 };
 
 // ================================= SOFT DELETE =================================
-const softDeleteAdmin = async (req) => {
+const softDeleteAdmin = async (req) => { 
   try {
-    const staffId = parseInt(req.params.id);
+    const staffId = parseInt(req.params);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID admin tidak valid");
     }
@@ -579,7 +568,7 @@ const softDeleteAdmin = async (req) => {
 
 const softDeleteStaff = async (req) => {
   try{
-    const staffId = parseInt(req.params.id);
+    const staffId = parseInt(req.params);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID staff tidak valid");
     }
@@ -807,9 +796,9 @@ export default{
   registerAdmin,
   loginSuperadmin, 
   getAllShop,
-  getShopDetail,
-  getAdminById, 
-  getStaffById,
+  getShopAdmin,
+  getShopStaffs, 
+  getShopProducts,
   updateSuperadminProfile,
   updateAdmin, 
   updateStaff,

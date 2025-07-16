@@ -54,7 +54,7 @@ const updateStaffValidation = Joi.object({
     imagePath : Joi.string().optional().allow(null),
 })
 
-export {
+export { 
     registerSuperadminValidation, 
     registerAdminValidation,
     login, 
