@@ -44,19 +44,6 @@ model User {
   Transaction Transaction[] @relation("WhoIsServing")
 }
 
-model Shop {
-  id Int @id @default(autoincrement())
-  name String
-  address String
-
-  // Staff yang bekerja di toko ini
-  users User[] @relation("UserWorkplace")
-
-  // Admin dari toko ini
-  adminId Int?
-  admin User? @relation("ShopAdmin", fields: [adminId], references: [id])
-}
-
 model UserHistory{
   id Int @id @default(autoincrement())
   description String
@@ -79,10 +66,9 @@ model UserToken {
 model Product {
   id            Int               @id @default(autoincrement())
   name          String
-  buyPrice      Int
-  sellPrice     Int
+  buyPrice      Decimal
+  sellPrice     Decimal
   imagePath     String?
-  stock         Int
   barcode       String
   isActive      Boolean           @default(true)
   distributor   Distributor?       @relation("DistributedBy", fields: [distributorId], references: [id])
@@ -94,6 +80,35 @@ model Product {
   stockOutDetails StockOutDetail[] @relation("WhatProductStockedOut")
 
   transactionDetail TransactionDetail[] @relation("WhatProductSold")
+
+  ShopProduct ShopProduct[]
+}
+
+model ShopProduct {
+  id        Int     @id @default(autoincrement())
+  shopId    Int
+  productId Int
+  stock     Int     @default(0)
+
+  shop      Shop    @relation(fields: [shopId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([shopId, productId]) // kombinasi unik
+}
+
+model Shop {
+  id Int @id @default(autoincrement())
+  name String
+  address String
+
+  // Staff yang bekerja di toko ini
+  users User[] @relation("UserWorkplace")
+
+  // Admin dari toko ini
+  adminId Int?
+  admin User? @relation("ShopAdmin", fields: [adminId], references: [id])
+
+  ShopProduct ShopProduct[]
 }
 
 model ProductHistory {
@@ -181,20 +196,32 @@ model StockOutDetail {
 
 // ================================= MODEL KASIR =================================
 model Transaction {
-  id Int @id @default(autoincrement())
-  invoice String
-  createdAt DateTime @default(now())
-  customerId Int
-  customer Customer @relation("WhoIsBuying", fields: [customerId], references: [id])
-  totalAmount Decimal
-  createdBy Int
-  staff User @relation("WhoIsServing", fields: [createdBy], references: [id])
-  payment String // qris, cash, transfer
-  status String // paid, refund
-  discountId Int
-  discount Discount @relation("WhatTransactionDiscount", fields: [discountId], references: [id])
+  id           Int       @id @default(autoincrement())
+  invoice      String
+  createdAt    DateTime  @default(now())
+  customerId   Int?
+  customer     Customer?  @relation("WhoTakesCredit", fields: [customerId], references: [id])
+  totalAmount  Decimal
+  paidAmount   Decimal   @default(0) // jumlah yang sudah dibayar
+  status       String    // unpaid, partial, paid, refund
+  payment      String    // cash, transfer, qris, credit
+  createdBy    Int
+  staff        User      @relation("WhoIsServing", fields: [createdBy], references: [id])
+  discountId   Int?
+  discount     Discount? @relation("WhatTransactionDiscount", fields: [discountId], references: [id])
+  
+  details      TransactionDetail[] @relation("TransactionDetails")
+  installments Installment[]       @relation("TransactionInstallments")
+}
 
-  transactionDetail TransactionDetail[] @relation("TransactionDetails")
+model Installment {
+  id             Int         @id @default(autoincrement())
+  transactionId  Int
+  transaction    Transaction @relation("TransactionInstallments", fields: [transactionId], references: [id])
+  amountPaid     Decimal
+  paidAt         DateTime    @default(now())
+  method         String      // cash, transfer, qris
+  note           String?
 }
 
 model TransactionDetail{
@@ -205,17 +232,19 @@ model TransactionDetail{
   transaction Transaction @relation("TransactionDetails", fields: [transactionId], references: [id])
   quantity Int
   subtotal Decimal
-  discountId Int
-  discount Discount @relation("WhatProductDiscount", fields: [discountId], references: [id])
+  discountId Int?
+  discount Discount? @relation("WhatProductDiscount", fields: [discountId], references: [id])
 }
 
 model Customer{
   id Int @id @default(autoincrement())
-  name String 
-  address String?
-  phone String?
+  name String
+  nik String
+  imagePath String
+  address String
+  phone String
 
-  Transaction Transaction[] @relation("WhoIsBuying")
+  Transaction Transaction[] @relation("WhoTakesCredit")
 }
 
 model Discount {
@@ -223,6 +252,8 @@ model Discount {
   name String
   percentDiscount Decimal
   type String // hanya produk atau keseluruhan transaksi
+  startAt DateTime?
+  endAt DateTime?
 
   Transaction Transaction[] @relation("WhatTransactionDiscount")
 

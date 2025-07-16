@@ -8,7 +8,7 @@ const registerStaff = Joi.object({
     email : Joi.string().max(100).email().optional().allow(null), 
     phone : Joi.string().max(20).optional().allow(null), 
     nik : Joi.string().max(50).required(),
-    photoPath : Joi.string().optional().allow(null)
+    imagePath : Joi.string().optional().allow(null)
 })
 
 // LOGIN 

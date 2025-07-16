@@ -19,7 +19,9 @@ const createTransaction = Joi.object({
 const createCustomer = Joi.object({
     name : Joi.string().max(30).required(),
     address : Joi.string().max(100).optional().allow(null),
-    phone : Joi.string().max(20).optional().allow(null)
+    phone : Joi.string().max(20).optional().allow(null),
+    nik : Joi.string().max(30).optional().allow(null),
+    imagePath : Joi.string().optional().allow(null),
 })
 
 // UPDATE 
