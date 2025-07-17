@@ -243,15 +243,30 @@ const getShopStaffs = async (request) => {
 const getShopProducts = async (request) => {
   try {
     const { shopId } = request.params;
+    const { search = "", minPrice, maxPrice } = request.query;
 
     if (!shopId) {
       throw new ResponseError(400, "Shop ID tidak boleh kosong");
     }
 
-    const shopProducts = await prisma.shopProduct.findMany({
-      where: {
-        shopId: parseInt(shopId)
+    const filters = {
+      shopId: parseInt(shopId),
+      product: {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
       },
+    };
+
+    if (minPrice || maxPrice) {
+      filters.product.price = {};
+      if (minPrice) filters.product.price.gte = parseFloat(minPrice);
+      if (maxPrice) filters.product.price.lte = parseFloat(maxPrice);
+    }
+
+    const shopProducts = await prisma.shopProduct.findMany({
+      where: filters,
       select: {
         stock: true,
         product: {
@@ -268,7 +283,6 @@ const getShopProducts = async (request) => {
       }
     });
 
-    // Format ulang agar data produk + stok jadi satu objek
     const products = shopProducts.map((item) => ({
       ...item.product,
       stock: item.stock
