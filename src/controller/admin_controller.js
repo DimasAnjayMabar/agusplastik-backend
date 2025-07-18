@@ -63,10 +63,34 @@ const getKasirStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     }
 }
 
+const getAllProduct = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.getAllProduct(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 // ================================= GET BY ID =================================
 const getStaffById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
         const result = await adminService.getStaffById(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
+const getProductById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.getProductById(req)
 
         res.status(200).json({
             data : result
@@ -121,7 +145,9 @@ export default {
     loginAdmin, 
     getGudangStaff,
     getKasirStaff, 
+    getAllProduct,
     getStaffById, 
+    getProductById,
     updateStaff, 
     softDeleteStaff,
     transferMultipleStaff
