@@ -183,6 +183,7 @@ export default {
     getShopAdmin,
   getShopStaffs, 
   getShopProducts,
+  updateSuperadminProfile,
   updateAdmin, 
   updateStaff,
   softDeleteAdmin,

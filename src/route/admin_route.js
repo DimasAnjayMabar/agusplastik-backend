@@ -3,13 +3,15 @@ import adminController from "../controller/admin_controller.js"
 import { authMiddleware } from "../middleware/auth_middleware.js"
 
 const adminRouter = new express.Router()
-adminRouter.post('/registrasi/gudang', authMiddleware, adminController.registerGudang)
-adminRouter.post('/registrasi/kasir', authMiddleware, adminController.registerKasir)
 adminRouter.post('/login/admin', adminController.loginAdmin)
-adminRouter.get('/admin/dashboard', authMiddleware, adminController.getAllStaff)
-adminRouter.get('/admin/dashboard/:id', authMiddleware, adminController.getStaffById)
+adminRouter.post('/admin/registrasi/gudang', authMiddleware, adminController.registerGudang)
+adminRouter.post('/admin//registrasi/kasir', authMiddleware, adminController.registerKasir)
+adminRouter.get('/admin/staff-gudang', authMiddleware, adminController.getGudangStaff)
+adminRouter.get('/admin/staff-kasir', authMiddleware, adminController.getKasirStaff)
+adminRouter.get('/admin/staff/:id', authMiddleware, adminController.getStaffById)
 adminRouter.patch('/admin/update-staff/:id', authMiddleware, adminController.updateStaff)
 adminRouter.delete('/admin/delete-staff/:id', authMiddleware, adminController.softDeleteStaff)
+adminRouter.post('/admin/transfer-staff', authMiddleware, adminController.transferMultipleStaff)
 
 export{
     adminRouter

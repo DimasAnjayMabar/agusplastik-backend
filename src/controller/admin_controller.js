@@ -1,9 +1,9 @@
-import userService from "../service/admin_service.js"
+import adminService from "../service/admin_service.js"
 
 // ================================= REGISTRASI =================================
 const registerGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.registerGudang(req)
+        const result = await adminService.registerGudang(req)
 
         res.status(200).json({
             data : result
@@ -15,7 +15,7 @@ const registerGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const registerKasir = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.registerKasir(req)
+        const result = await adminService.registerKasir(req)
 
         res.status(200).json({
             data : result
@@ -28,7 +28,7 @@ const registerKasir = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= LOGIN =================================
 const loginAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.loginAdmin(req.body)
+        const result = await adminService.loginAdmin(req.body)
 
         res.status(200).json({
             data : result
@@ -39,9 +39,21 @@ const loginAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 }
 
 // ================================= GET ALL =================================
-const getAllStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+const getGudangStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.getAllStaff(req)
+        const result = await adminService.getGudangStaff(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
+const getKasirStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.getKasirStaff(req)
 
         res.status(200).json({
             data : result
@@ -54,7 +66,7 @@ const getAllStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= GET BY ID =================================
 const getStaffById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.getStaffById(req)
+        const result = await adminService.getStaffById(req)
 
         res.status(200).json({
             data : result
@@ -67,7 +79,7 @@ const getStaffById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= UPDATE =================================
 const updateStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{ 
-        const result = await userService.updateStaff(req)
+        const result = await adminService.updateStaff(req)
 
         res.status(200).json({
             data : result
@@ -80,7 +92,20 @@ const updateStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await userService.softDeleteStaff(req)
+        const result = await adminService.softDeleteStaff(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
+// ================================= TRANSFER =================================
+const transferMultipleStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.transferMultipleStaff(req)
 
         res.status(200).json({
             data : result
@@ -94,8 +119,10 @@ export default {
     registerGudang, 
     registerKasir, 
     loginAdmin, 
-    getAllStaff, 
+    getGudangStaff,
+    getKasirStaff, 
     getStaffById, 
     updateStaff, 
-    softDeleteStaff
+    softDeleteStaff,
+    transferMultipleStaff
 }

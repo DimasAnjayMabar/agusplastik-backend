@@ -124,11 +124,86 @@ const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
 }
 
 // ================================= GET ALL ================================= 
-const getAllStaff = async (request) => {
+const getGudangStaff = async (request) => {
   try {
     const { 
       search = '',
-      roles = ['kasir', 'gudang'], // default value
+      roles = ['gudang'], // default value
+      isActive = true,
+      page = 1,
+      pageSize = 10,
+      sortBy = 'name',
+      sortOrder = 'asc'
+    } = request.query;
+
+    // Format roles ke array jika berupa string
+    const rolesArray = Array.isArray(roles) ? roles : [roles].filter(Boolean);
+
+    const where = {
+      role: { in: rolesArray },
+      isActive: isActive === 'true' || isActive === true
+    };
+
+    // Tambahkan filter search jika ada
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
+        { nik: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const staff = await prismaClient.user.findMany({
+      where,
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        role: true,
+        phone: true,
+        email: true,
+        nik: true,
+        photoPath: true,
+        isActive: true,
+        admin: {
+          select: {
+            name: true
+          }
+        }
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: {
+        [sortBy]: sortOrder
+      }
+    });
+
+    const totalStaff = await prismaClient.user.count({ where });
+
+    return {
+      data: staff.map((s) => ({
+        ...s,
+        adminName: s.admin?.name || null,
+        admin: undefined
+      })),
+      pagination: {
+        currentPage: page,
+        pageSize,
+        totalItems: totalStaff,
+        totalPages: Math.ceil(totalStaff / pageSize)
+      }
+    };
+  } catch(e) {
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Gagal mengambil daftar staff", e);
+  }
+};
+
+const getKasirStaff = async (request) => {
+  try {
+    const { 
+      search = '',
+      roles = ['kasir'], // default value
       isActive = true,
       page = 1,
       pageSize = 10,
@@ -303,7 +378,7 @@ const getAllProducts = async (request) => {
 // ================================= GET BY ID =================================
 const getStaffById = async (request) => {// HANYA WEBSITE ADMIN
   try{  
-    const staffId = parseInt(request.params.id);
+    const staffId = parseInt(request.params);
 
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID tidak valid");
@@ -348,7 +423,7 @@ const getStaffById = async (request) => {// HANYA WEBSITE ADMIN
 
 const getProductById = async (request) => {
   try {
-    const productId = parseInt(request.params.id);
+    const productId = parseInt(request.params);
 
     if (isNaN(productId)) {
       throw new ResponseError(400, "ID produk tidak valid");
@@ -387,7 +462,7 @@ const getProductById = async (request) => {
 // ================================= UPDATE =================================
 const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
   try{
-    const staffId = parseInt(req.params.id);
+    const staffId = parseInt(req.params);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID staff tidak valid");
     }
@@ -465,7 +540,7 @@ const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req) => {
   try{
-    const staffId = parseInt(req.params.id);
+    const staffId = parseInt(req.params);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID staff tidak valid");
     }
@@ -506,14 +581,90 @@ const softDeleteStaff = async (req) => {
   }
 };
 
+// ================================= TRANSFER =================================
+const transferMultipleStaff = async (req) => {
+  try {
+    const { staffIds, targetShopId } = req.body;
+    const requester = req.user;
+
+    if (requester.role !== "superadmin") {
+      throw new ResponseError(403, "Hanya superadmin yang dapat mentransfer staff");
+    }
+
+    if (!Array.isArray(staffIds) || staffIds.length === 0 || isNaN(parseInt(targetShopId))) {
+      throw new ResponseError(400, "Data tidak valid");
+    }
+
+    const parsedStaffIds = staffIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+    const parsedTargetShopId = parseInt(targetShopId);
+
+    // Pastikan toko tujuan valid dan punya admin
+    const targetShop = await prismaClient.shop.findUnique({
+      where: { id: parsedTargetShopId },
+      include: { admin: true }
+    });
+
+    if (!targetShop || !targetShop.admin) {
+      throw new ResponseError(400, "Toko tidak ditemukan atau belum memiliki admin");
+    }
+
+    const validStaff = await prismaClient.user.findMany({
+      where: {
+        id: { in: parsedStaffIds },
+        isActive: true,
+        role: { in: ["kasir", "gudang"] }
+      }
+    });
+
+    if (validStaff.length === 0) {
+      throw new ResponseError(404, "Tidak ada staff valid ditemukan");
+    }
+
+    const updates = [];
+
+    for (const staff of validStaff) {
+      // Skip jika sudah di toko dan admin yang sama
+      if (staff.shopId === parsedTargetShopId && staff.adminId === targetShop.admin.id) continue;
+
+      updates.push(prismaClient.user.update({
+        where: { id: staff.id },
+        data: {
+          shopId: parsedTargetShopId,
+          adminId: targetShop.admin.id
+        }
+      }));
+
+      updates.push(prismaClient.userHistory.create({
+        data: {
+          userId: staff.id,
+          description: `Staff '${staff.name}' dipindahkan ke toko '${targetShop.name}' di bawah admin '${targetShop.admin.name}' oleh superadmin '${requester.name}'`
+        }
+      }));
+    }
+
+    if (updates.length === 0) {
+      return { message: "Semua staff sudah berada di toko tujuan" };
+    }
+
+    await prismaClient.$transaction(updates);
+
+    return { message: `${updates.length / 2} staff berhasil ditransfer ke toko '${targetShop.name}'` };
+  } catch (e) {
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Gagal mentransfer staff", e);
+  }
+};
+
 export default {
     registerGudang, 
     registerKasir, 
     loginAdmin, 
-    getAllStaff, 
+    getGudangStaff,
+    getKasirStaff, 
     getAllProducts,
     getStaffById, 
     getProductById,
     updateStaff, 
-    softDeleteStaff
+    softDeleteStaff,
+    transferMultipleStaff
 }
