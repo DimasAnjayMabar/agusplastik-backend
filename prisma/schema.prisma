@@ -109,6 +109,8 @@ model Shop {
   admin User? @relation("ShopAdmin", fields: [adminId], references: [id])
 
   ShopProduct ShopProduct[]
+
+  Distributor Distributor[] @relation("DistributorServeShop")
 }
 
 model ProductHistory {
@@ -127,6 +129,8 @@ model Distributor {
   ecommerceLink String?
   imagePath     String?
   address       String?
+  shopId Int?
+  shop Shop? @relation("DistributorServeShop", fields: [shopId], references: [id])
   isActive      Boolean              @default(true)
   products      Product[] @relation("DistributedBy")
   histories     DistributorHistory[] @relation("DistributorHistories")

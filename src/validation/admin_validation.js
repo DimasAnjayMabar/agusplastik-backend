@@ -27,6 +27,14 @@ const updateStaffValidation = Joi.object({
     shopId : Joi.string().optional().allow(null)
 })
 
+const updateAdminValidation = Joi.object({
+    name : Joi.string().max(100).optional(),
+    email : Joi.string().max(100).email().optional().allow(null), 
+    phone : Joi.string().max(20).optional().allow(null), 
+    nik : Joi.string().max(50).optional(),
+    imagePath : Joi.string().optional().allow(null),
+})
+
 export{
-    registerStaff, updateStaffValidation, login
+    registerStaff, updateStaffValidation, login, updateAdminValidation
 }

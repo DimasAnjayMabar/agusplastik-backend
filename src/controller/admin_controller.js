@@ -113,6 +113,19 @@ const updateStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     }
 }
 
+const updateAdminProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{ 
+        const result = await adminService.updateAdminProfile(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
+
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
@@ -149,6 +162,7 @@ export default {
     getStaffById, 
     getProductById,
     updateStaff, 
+    updateAdminProfile,
     softDeleteStaff,
     transferMultipleStaff
 }

@@ -3,7 +3,7 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { registerStaff, updateStaffValidation, login } from "../validation/admin_validation.js";
+import { registerStaff, updateStaffValidation, login, updateAdminValidation } from "../validation/admin_validation.js";
 
 // ================================= REGISTRASI =================================
 const registerGudang = async (request) => {
@@ -537,6 +537,75 @@ const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
   }
 };
 
+const updateAdminProfile = async (req) => {
+  try {
+    const superadminId = req.user.id;
+
+    if (req.user.role !== "admin") {
+      throw new ResponseError(403, "Hanya admin yang dapat mengubah profilnya");
+    }
+
+    const updateRequest = validate(updateAdminValidation, req.body);
+
+    const superadmin = await prismaClient.user.findFirst({
+      where: {
+        id: superadminId,
+        role: "admin",
+        isActive: true,
+      },
+    });
+
+    if (!superadmin) {
+      throw new ResponseError(404, "Admin tidak ditemukan");
+    }
+
+    const changes = [];
+    const fields = ['name', 'email', 'phone', 'nik', 'photoPath'];
+
+    for (const field of fields) {
+      const oldValue = superadmin[field];
+      const newValue = updateRequest[field];
+
+      if (typeof newValue !== 'undefined' && newValue !== oldValue) {
+        changes.push(`${field} dari '${oldValue ?? "-"}' ke '${newValue ?? "-"}'`);
+      }
+    }
+
+    if (changes.length === 0) {
+      throw new ResponseError(400, "Tidak ada perubahan yang dilakukan");
+    }
+
+    const updated = await prismaClient.user.update({
+      where: { id: superadminId },
+      data: updateRequest,
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        role: true,
+        phone: true,
+        email: true,
+        nik: true,
+        photoPath: true,
+        isActive: true,
+        shopId: true,
+      },
+    });
+
+    await prismaClient.userHistory.create({
+      data: {
+        userId: superadminId,
+        description: `Admin '${req.user.username}' mengubah ${changes.join(', ')}`,
+      },
+    });
+
+    return updated;
+  } catch (e) {
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Gagal mengupdate profil admin", e);
+  }
+};
+
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req) => {
   try{
@@ -665,6 +734,7 @@ export default {
     getStaffById, 
     getProductById,
     updateStaff, 
+    updateAdminProfile,
     softDeleteStaff,
     transferMultipleStaff
 }

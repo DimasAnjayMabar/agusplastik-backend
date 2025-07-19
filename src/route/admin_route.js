@@ -12,6 +12,7 @@ adminRouter.get('/admin/products', authMiddleware, adminController.getAllProduct
 adminRouter.get('/admin/staff/:staffId', authMiddleware, adminController.getStaffById)
 adminRouter.get('/admin/products/:productId', authMiddleware, adminController.getProductById)
 adminRouter.patch('/admin/update-staff/:staffId', authMiddleware, adminController.updateStaff)
+adminRouter.patch('/admin/update-admin', authMiddleware, adminController.updateAdminProfile)
 adminRouter.delete('/admin/delete-staff/:staffId', authMiddleware, adminController.softDeleteStaff)
 adminRouter.post('/admin/transfer-staff', authMiddleware, adminController.transferMultipleStaff)
 

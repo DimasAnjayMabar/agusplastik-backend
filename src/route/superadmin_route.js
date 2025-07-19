@@ -17,3 +17,7 @@ superAdminRouter.delete('/superadmin/delete-admin/:adminId', authMiddleware, sup
 superAdminRouter.delete('/superadmin/delete-staff/:staffId', authMiddleware, superAdminController.softDeleteStaff)
 superAdminRouter.post('/superadmin/transfer-admin', authMiddleware, superAdminController.transferAdminToShop)
 superAdminRouter.post('/superadmin/transfer-staff', superAdminController.transferMultipleStaff)
+
+export{
+    superAdminRouter
+}
