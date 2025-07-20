@@ -10,7 +10,16 @@ export const authMiddleware = async (req, res, next) => {
 
         const userToken = await prismaClient.userToken.findUnique({
             where: { token },
-            include: { user: true }
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        role: true,
+                        username: true,
+                        shopId: true // tambahkan ini
+                    }
+                }
+            }
         });
 
         if (!userToken) throw new ResponseError(401, "Token tidak valid");
@@ -21,10 +30,11 @@ export const authMiddleware = async (req, res, next) => {
             throw new ResponseError(401, "Token sudah kadaluarsa");
         }
 
-        req.user = {
+       req.user = {
             id: userToken.user.id,
             role: userToken.user.role,
             username: userToken.user.username,
+            shopId: userToken.user.shopId // tambahkan ini
         };
 
         next()

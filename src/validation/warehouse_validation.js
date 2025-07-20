@@ -16,16 +16,20 @@ const createDistributor = Joi.object({
     address : Joi.string().optional().allow(null)
 })
 
-const createProduct = Joi.object({
-    name : Joi.string().max(30).required(),
-    imagePath : Joi.string().optional().allow(null),
-    stock : Joi.number().integer(),
-    subtotal : Joi.number().precision(2),
-    createdBy : Joi.number().integer(),
-    distributorId : Joi.number().integer().optional().allow(null),
-    typeId : Joi.number().integer(),
-    profitPercent : Joi.number().precision(2)
-})
+const productItemSchema = Joi.object({
+  name: Joi.string().max(30).required(),
+  imagePath: Joi.string().allow(null, ''),
+  stock: Joi.number().integer().min(1).required(),
+  subtotal: Joi.number().precision(2).min(1).required(),
+  typeId: Joi.number().integer().required(),
+  profitPercent: Joi.number().precision(2).min(0).required()
+});
+
+const createStockInSchema = Joi.object({
+  distributorId: Joi.number().integer().allow(null),
+  invoiceDate: Joi.date().optional(), // default di-backend ke now()
+  products: Joi.array().min(1).items(productItemSchema).required()
+});
 
 // UPDATE
 const updateDistributor = Joi.object({
@@ -45,5 +49,5 @@ const updateProduct = Joi.object({
 })
 
 export{
-    login, createProduct, createDistributor, updateDistributor, updateDistributor
+    login, createStockInSchema, createDistributor, updateDistributor, updateDistributor
 }

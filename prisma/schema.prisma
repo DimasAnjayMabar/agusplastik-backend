@@ -97,20 +97,17 @@ model ShopProduct {
 }
 
 model Shop {
-  id Int @id @default(autoincrement())
-  name String
-  address String
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String
 
-  // Staff yang bekerja di toko ini
-  users User[] @relation("UserWorkplace")
-
-  // Admin dari toko ini
-  adminId Int?
-  admin User? @relation("ShopAdmin", fields: [adminId], references: [id])
-
+  users     User[] @relation("UserWorkplace")
+  adminId   Int?
+  admin     User? @relation("ShopAdmin", fields: [adminId], references: [id])
   ShopProduct ShopProduct[]
 
-  Distributor Distributor[] @relation("DistributorServeShop")
+  // Relasi ke distributor-distributor yang melayani toko ini
+  distributors DistributorShop[] @relation("WhereToServe")
 }
 
 model ProductHistory {
@@ -121,6 +118,21 @@ model ProductHistory {
   productId   Int
 }
 
+model DistributorShop {
+  distributorId Int
+  shopId        Int
+
+  // Optional: bisa tambahkan kolom seperti tanggal mulai melayani, catatan khusus, dsb.
+  servedSince   DateTime? 
+  notes         String?
+
+  // Relations
+  distributor   Distributor @relation("ServedBy", fields: [distributorId], references: [id])
+  shop          Shop        @relation("WhereToServe", fields: [shopId], references: [id])
+
+  @@id([distributorId, shopId]) // composite primary key
+}
+
 model Distributor {
   id            Int                  @id @default(autoincrement())
   name          String
@@ -129,12 +141,14 @@ model Distributor {
   ecommerceLink String?
   imagePath     String?
   address       String?
-  shopId Int?
-  shop Shop? @relation("DistributorServeShop", fields: [shopId], references: [id])
   isActive      Boolean              @default(true)
+  
   products      Product[] @relation("DistributedBy")
   histories     DistributorHistory[] @relation("DistributorHistories")
   stockIns      StockIn[] @relation("StockInBy")
+
+  // Relasi ke toko-toko yang dilayani
+  shops         DistributorShop[] @relation("ServedBy")
 }
 
 model DistributorHistory {

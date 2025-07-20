@@ -38,6 +38,18 @@ const getShopDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE AD
     }
 }
 
+const getProductTypes = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.getProductTypes(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 // ================================= GET BY ID =================================
 const getProductById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
@@ -54,6 +66,18 @@ const getProductById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 const getDistributorById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
         const result = await adminService.getDistributorById(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
+const getStaffProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.getStaffProfile(req)
 
         res.status(200).json({
             data : result
@@ -154,10 +178,12 @@ export default{
     loginStaffGudang,
     getShopProducts,
     getShopDistributor,
+    getProductTypes,
     createDistributor,
     createProduct,
     getDistributorById,
     getProductById,
+    getStaffProfile,
     updateDistributor,
     updateProduct,
     updateStaffProfile,
