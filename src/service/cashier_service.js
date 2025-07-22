@@ -5,6 +5,148 @@ import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
 import { createTransactionSchema } from "../validation/cashier_validation.js";
 
+// ================================= LOGIN =================================
+const loginStaffKasir = async (request) => {
+  try{
+    const loginrequest = validate(login, request);
+
+    const user = await prismaClient.user.findUnique({
+      where: { username: loginrequest.username },
+      select: {
+        id: true,
+        username: true,
+        password: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new ResponseError(401, "Username atau password salah");
+    }
+
+    const passwordIsValid = await bcrypt.compare(loginrequest.password, user.password);
+    if (!passwordIsValid) {
+      throw new ResponseError(401, "Username atau password salah");
+    }
+
+    if (user.role !== "kasir") {
+      throw new ResponseError(403, "Akses hanya untuk staff gudang");
+    }
+
+    const token = uuid();
+
+    await prismaClient.userToken.create({
+      data: {
+        userId: user.id,
+        token: token,
+        lastActive: new Date(),
+        expiresIn: 7 * 24 * 60 * 60, 
+      },
+    });
+
+    return { token };
+  }catch(e){
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Login gagal", e)
+  }
+};
+
+// ================================= GET ALL =================================
+const getAllTransaction = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+const getAllCustomer = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+// ================================= GET BY ID =================================
+const getTransactionDetail = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+const getCustomerDetail = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+const getStaffProfile = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+// ================================= UPDATE =================================
+const updateTransaction = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+const updateCustomer = async (req) => { 
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+const updateStaffProfile = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+// ================================= DELETE =================================
+const deleteTransaction = async(req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+const deleteCustomer = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
+// ================================= CREATE =================================
 const createTransaction = async (req) => {
     try {
         // Validasi input menggunakan schema Joi
@@ -157,6 +299,15 @@ const createTransaction = async (req) => {
     }
 };
 
+const createInstallment = async (req) => {
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
+
 // Fungsi generate invoice yang lebih robust
 function generateInvoice(prefix) {
     const now = new Date();
@@ -164,4 +315,20 @@ function generateInvoice(prefix) {
     const timePart = now.getTime().toString().slice(-6);
     const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     return `${prefix}-${datePart}-${timePart}-${randomPart}`;
+}
+
+export default {
+    loginStaffKasir,
+    createTransaction,
+    createInstallment,
+    getAllCustomer,
+    getAllTransaction,
+    getTransactionDetail,
+    getCustomerDetail,
+    getStaffProfile,
+    updateCustomer,
+    updateTransaction,
+    updateStaffProfile,
+    deleteCustomer,
+    deleteTransaction
 }
