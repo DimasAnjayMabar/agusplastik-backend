@@ -3,7 +3,7 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { login } from "../validation/warehouse_validation.js"
+import { createStockInSchema, login, createDistributor, createDistributorValidation } from "../validation/warehouse_validation.js"
 
 // ================================= LOGIN =================================
 const loginStaffGudang = async (request) => {
@@ -241,7 +241,7 @@ const createDistributor = async (req) => {
       throw new ResponseError(403, "User tidak terkait dengan toko manapun");
     }
 
-    const data = validate(createDistributor, req.body);
+    const data = validate(createDistributorValidation, req.body);
 
     const distributor = await prismaClient.distributor.create({
       data: {
@@ -276,7 +276,7 @@ const createDistributor = async (req) => {
 };
 
 const createProduct = async (req) => {
-  try{
+  try {
     const { shopId, id: userId } = req.user;
     if (!shopId) throw new ResponseError(400, "Toko tidak ditemukan");
 
@@ -303,10 +303,6 @@ const createProduct = async (req) => {
 
         if (!product) {
           // 2. Jika belum ada, buat baru
-          const buyPrice = parseFloat((item.subtotal / item.stock).toFixed(2));
-          const sellPrice = parseFloat((buyPrice * (1 + item.profitPercent / 100)).toFixed(2));
-          const barcode = generateBarcode();
-
           product = await tx.product.create({
             data: {
               name: item.name,
@@ -319,7 +315,7 @@ const createProduct = async (req) => {
             }
           });
 
-          // 3. Tambahkan juga ke ShopProduct
+          // 3. Tambahkan ke ShopProduct
           await tx.shopProduct.create({
             data: {
               shopId,
@@ -327,8 +323,8 @@ const createProduct = async (req) => {
               stock: item.stock
             }
           });
-
         } else {
+          // 4. Jika produk sudah ada
           const currentBuyPrice = Number(product.buyPrice);
 
           if (currentBuyPrice !== buyPrice) {
@@ -337,7 +333,7 @@ const createProduct = async (req) => {
             await tx.product.update({
               where: { id: product.id },
               data: {
-                buyPrice: buyPrice,
+                buyPrice,
                 sellPrice: updatedSellPrice
               }
             });
@@ -350,6 +346,7 @@ const createProduct = async (req) => {
             });
           }
 
+          // Update stok di ShopProduct
           await tx.shopProduct.upsert({
             where: {
               shopId_productId: {
@@ -370,14 +367,6 @@ const createProduct = async (req) => {
           });
         }
 
-        await tx.shopProduct.create({
-          data: {
-            shopId,
-            productId: product.id,
-            stock: item.stock
-          }
-        });
-
         createdProducts.push({
           productId: product.id,
           quantity: item.stock,
@@ -387,40 +376,65 @@ const createProduct = async (req) => {
         totalAmount += item.subtotal;
       }
 
+      // Generate invoice menggunakan fungsi baru
+      const invoiceNumber = generateInvoice('STI'); // STI = Stock In
+
       const stockIn = await tx.stockIn.create({
         data: {
-          invoice: generateInvoiceNumber(),
+          invoice: invoiceNumber,
           reason: "Pembelian Produk Baru",
           totalAmount,
           createdBy: userId,
           createdAt: now,
           distributorId: distributorId ?? null,
-          sourceShopId: shopId
+          shopId // Menambahkan shopId ke stockIn
         }
       });
 
-      for (const detail of createdProducts) {
-        await tx.stockInDetail.create({
+      // Buat detail stock in
+      await Promise.all(createdProducts.map(detail => 
+        tx.stockInDetail.create({
           data: {
             productId: detail.productId,
             stockInId: stockIn.id,
             quantity: detail.quantity,
             subtotal: detail.subtotal
           }
-        });
-      }
+        })
+      ));
 
       return {
         message: "Transaksi stock in berhasil",
         stockInId: stockIn.id,
-        totalProduct: createdProducts.length
+        invoice: invoiceNumber,
+        totalProduct: createdProducts.length,
+        totalAmount
       };
     });
-  }catch(e){
+  } catch (e) {
     if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal menambah distributor");
+    throw new ResponseError(500, "Gagal menambah produk", e);
   }
 };
+
+function generateBarcode() {
+  // Format: 8 digit angka acak
+  const randomPart = Math.floor(10000000 + Math.random() * 90000000);
+  
+  // Format: Barcode dengan awalan 'BR' diikuti 8 digit angka
+  // return `BR${randomPart}`;
+  
+  // Atau bisa juga hanya angka saja (tanpa prefix)
+  return randomPart.toString();
+}
+
+function generateInvoice(prefix) {
+    const now = new Date();
+    const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const timePart = now.getTime().toString().slice(-6);
+    const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${prefix}-${datePart}-${timePart}-${randomPart}`;
+}
 
 // ================================= UPDATE =================================
 const updateDistributor = async (req) => {

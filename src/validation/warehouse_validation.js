@@ -7,7 +7,7 @@ const login = Joi.object({
 })
 
 // CREATE
-const createDistributor = Joi.object({
+const createDistributorValidation = Joi.object({
     name : Joi.string().max(50).required(),
     phone : Joi.string().max(50).optional().allow(null),
     email : Joi.string().max(100).optional().allow(null),
@@ -49,5 +49,5 @@ const updateProduct = Joi.object({
 })
 
 export{
-    login, createStockInSchema, createDistributor, updateDistributor, updateDistributor
+    login, createStockInSchema, createDistributorValidation, updateDistributor, updateDistributor
 }
