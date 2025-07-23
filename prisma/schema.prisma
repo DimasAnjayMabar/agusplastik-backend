@@ -227,6 +227,7 @@ model Transaction {
   staff        User      @relation("WhoIsServing", fields: [createdBy], references: [id])
   discountId   Int?
   discount     Discount? @relation("WhatTransactionDiscount", fields: [discountId], references: [id])
+  dueDate      DateTime? 
   
   details      TransactionDetail[] @relation("TransactionDetails")
   installments Installment[]       @relation("TransactionInstallments")
@@ -263,6 +264,16 @@ model Customer{
   phone String
 
   Transaction Transaction[] @relation("WhoTakesCredit")
+
+  CustomerHistory CustomerHistory[] @relation("CustomerHistory")
+}
+
+model CustomerHistory{
+  id Int @id @default(autoincrement())
+  description String
+  updatedAt DateTime @default(now())
+  customerId Int
+  customer Customer @relation("CustomerHistory", fields: [customerId], references: [id])
 }
 
 model Discount {

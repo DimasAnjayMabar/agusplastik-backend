@@ -3,7 +3,7 @@ import warehouseService from "../service/warehouse_service.js"
 // ================================= LOGIN =================================
 const loginStaffGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.loginStaffGudang(req)
+        const result = await warehouseService.loginStaffGudang(req)
 
         res.status(200).json({
             data : result
@@ -16,7 +16,7 @@ const loginStaffGudang = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMI
 // ================================= GET ALL =================================
 const getShopProducts = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.getShopProducts(req)
+        const result = await warehouseService.getShopProducts(req)
 
         res.status(200).json({
             data : result
@@ -28,7 +28,7 @@ const getShopProducts = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const getShopDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.getShopDistributor(req)
+        const result = await warehouseService.getShopDistributor(req)
 
         res.status(200).json({
             data : result
@@ -40,7 +40,7 @@ const getShopDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE AD
 
 const getProductTypes = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.getProductTypes(req)
+        const result = await warehouseService.getProductTypes(req)
 
         res.status(200).json({
             data : result
@@ -53,7 +53,7 @@ const getProductTypes = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= GET BY ID =================================
 const getProductById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.getProductById(req)
+        const result = await warehouseService.getProductById(req)
 
         res.status(200).json({
             data : result
@@ -65,7 +65,7 @@ const getProductById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const getDistributorById = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.getDistributorById(req)
+        const result = await warehouseService.getDistributorById(req)
 
         res.status(200).json({
             data : result
@@ -77,7 +77,7 @@ const getDistributorById = async (req, res, next) => { // HANYA UNTUK WEBSITE AD
 
 const getStaffProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.getStaffProfile(req)
+        const result = await warehouseService.getStaffProfile(req)
 
         res.status(200).json({
             data : result
@@ -90,7 +90,7 @@ const getStaffProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= CREATE =================================
 const createDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.createDistributor(req)
+        const result = await warehouseService.createDistributor(req)
 
         res.status(200).json({
             data : result
@@ -102,7 +102,7 @@ const createDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADM
 
 const createProduct = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.createProduct(req)
+        const result = await warehouseService.createProduct(req)
 
         res.status(200).json({
             data : result
@@ -115,7 +115,7 @@ const createProduct = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= UPDATE =================================
 const updateDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.updateDistributor(req)
+        const result = await warehouseService.updateDistributor(req)
 
         res.status(200).json({
             data : result
@@ -127,7 +127,7 @@ const updateDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADM
 
 const updateProduct = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.updateProduct(req)
+        const result = await warehouseService.updateProduct(req)
 
         res.status(200).json({
             data : result
@@ -139,7 +139,7 @@ const updateProduct = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 
 const updateStaffProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.updateStaffProfile(req)
+        const result = await warehouseService.updateStaffProfile(req)
 
         res.status(200).json({
             data : result
@@ -152,7 +152,7 @@ const updateStaffProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE AD
 // ================================= DELETE =================================
 const deleteDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.deleteDistributor(req)
+        const result = await warehouseService.deleteDistributor(req)
 
         res.status(200).json({
             data : result
@@ -164,7 +164,7 @@ const deleteDistributor = async (req, res, next) => { // HANYA UNTUK WEBSITE ADM
 
 const deleteProduct = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.deleteProduct(req)
+        const result = await warehouseService.deleteProduct(req)
 
         res.status(200).json({
             data : result

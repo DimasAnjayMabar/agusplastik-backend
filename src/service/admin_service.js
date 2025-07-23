@@ -487,7 +487,7 @@ const updateStaff = async (req) => {// HANYA WEBSITE ADMIN
     }
 
     const changes = [];
-    const fields = ['name', 'email', 'phone', 'nik', 'photoPath', 'shopId'];
+    const fields = ['name', 'email', 'phone', 'nik', 'imagePath', 'shopId'];
 
     for (const field of fields) {
       const oldValue = staff[field];

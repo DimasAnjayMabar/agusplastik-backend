@@ -125,7 +125,6 @@ const updateAdminProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE AD
     }
 }
 
-
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{

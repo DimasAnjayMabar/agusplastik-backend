@@ -31,7 +31,7 @@ const loginStaffKasir = async (request) => {
     }
 
     if (user.role !== "kasir") {
-      throw new ResponseError(403, "Akses hanya untuk staff gudang");
+      throw new ResponseError(403, "Akses hanya untuk staff kasir");
     }
 
     const token = uuid();
@@ -54,97 +54,573 @@ const loginStaffKasir = async (request) => {
 
 // ================================= GET ALL =================================
 const getAllTransaction = async (req) => {
-    try{
+    try {
+        const { 
+            search, 
+            sortBy, 
+            sortOrder = 'desc', 
+            minAmount, 
+            maxAmount 
+        } = req.query;
 
-    }catch(e){
+        // Build base query
+        let whereClause = {};
+        let orderByClause = { createdAt: 'desc' }; // Default sort
+
+        // Search by date or customer name
+        if (search) {
+            whereClause.OR = [
+                // Search by date (format: dd-mm-yyyy or yyyy-mm-dd)
+                { createdAt: { equals: new Date(search) } },
+                // Search by customer name (for credit transactions)
+                { 
+                    AND: [
+                        { payment: 'credit' },
+                        { customer: { name: { contains: search, mode: 'insensitive' } } }
+                    ]
+                }
+            ];
+        }
+
+        // Filter by amount range
+        if (minAmount || maxAmount) {
+            whereClause.totalAmount = {};
+            if (minAmount) whereClause.totalAmount.gte = parseFloat(minAmount);
+            if (maxAmount) whereClause.totalAmount.lte = parseFloat(maxAmount);
+        }
+
+        // Sorting options
+        if (sortBy) {
+            if (sortBy === 'date') {
+                orderByClause = { createdAt: sortOrder };
+            } else if (sortBy === 'amount') {
+                orderByClause = { totalAmount: sortOrder };
+            }
+        }
+
+        const transactions = await prismaClient.transaction.findMany({
+            where: whereClause,
+            select: {
+                id: true,
+                invoice: true,
+                createdAt: true,
+                totalAmount: true,
+                paidAmount: true,
+                status: true,
+                payment: true,
+                customer: {
+                    select: {
+                        name: true,
+                        phone: true
+                    },
+                    where: {
+                        payment: 'credit'
+                    }
+                }
+            },
+            orderBy: orderByClause
+        });
+
+        // Format data untuk frontend
+        const formattedTransactions = transactions.map(transaction => ({
+            id: transaction.id,
+            invoice: transaction.invoice,
+            tanggal: transaction.createdAt.toLocaleDateString('id-ID', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric' 
+            }),
+            customer: transaction.payment === 'credit' 
+                ? `${transaction.customer?.name || '-'} (${transaction.customer?.phone || '-'})` 
+                : '-',
+            totalBelanja: transaction.totalAmount.toFixed(2),
+            payment: transaction.payment.toUpperCase(),
+            statusPembayaran: getPaymentStatusText(transaction.status, transaction.paidAmount, transaction.totalAmount),
+            rawDate: transaction.createdAt, // Untuk sorting di frontend
+            rawAmount: transaction.totalAmount // Untuk sorting di frontend
+        }));
+
+        return formattedTransactions;
+
+    } catch(e) {
         if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+        throw new ResponseError(500, "Gagal mengambil data transaksi", e);
     }
-}
+};
+
+// Helper function untuk menentukan teks status pembayaran
+function getPaymentStatusText(status, paidAmount, totalAmount) {
+    if (status === 'paid') return 'LUNAS';
+    if (status === 'unpaid') return 'BELUM BAYAR';
+    if (status === 'partial') {
+        const percentage = (paidAmount / totalAmount * 100).toFixed(0);
+        return `CICILAN (${percentage}%)`;
+    }
+    return status.toUpperCase();
+};
 
 const getAllCustomer = async (req) => {
-    try{
+    try {
+        const { search = '' } = req.query;
+        
+        // Buat kondisi pencarian
+        const whereCondition = {
+            OR: [
+                { name: { contains: search, mode: 'insensitive' } },
+                { nik: { contains: search, mode: 'insensitive' } },
+                { phone: { contains: search, mode: 'insensitive' } }
+            ]
+        };
 
-    }catch(e){
+        // Jika tidak ada parameter search, tampilkan semua customer
+        if (!search) {
+            delete whereCondition.OR;
+        }
+
+        const customers = await prismaClient.customer.findMany({
+            where: whereCondition,
+            select: {
+                id: true,
+                name: true,
+                nik: true,
+                imagePath: true,
+                address: true,
+                phone: true,
+                Transaction: false // Tidak menampilkan data transaksi
+            }
+        });
+
+        return customers;
+    } catch (e) {
         if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+        throw new ResponseError(500, "Gagal mengambil data customer", e);
     }
-}
+};
 
 // ================================= GET BY ID =================================
 const getTransactionDetail = async (req) => {
-    try{
+    try {
+        const { id } = req.params;
 
-    }catch(e){
+        // Get transaction with all related data
+        const transaction = await prismaClient.transaction.findUnique({
+            where: { id: parseInt(id) },
+            include: {
+                staff: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                customer: true,
+                discount: true,
+                details: {
+                    include: {
+                        product: {
+                            include: {
+                                type: {
+                                    select: {
+                                        name: true
+                                    }
+                                },
+                                distributor: {
+                                    select: {
+                                        name: true
+                                    }
+                                }
+                            }
+                        },
+                        discount: true
+                    }
+                },
+                installments: {
+                    orderBy: {
+                        paidAt: 'desc'
+                    }
+                }
+            }
+        });
+
+        if (!transaction) {
+            throw new ResponseError(404, "Transaksi tidak ditemukan");
+        }
+
+        // Calculate remaining amount
+        const remainingAmount = transaction.totalAmount - transaction.paidAmount;
+
+        // Format the response
+        const response = {
+            id: transaction.id,
+            invoice: transaction.invoice,
+            tanggal: transaction.createdAt.toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }),
+            payment: transaction.payment.toUpperCase(),
+            status: transaction.status.toUpperCase(),
+            totalAmount: transaction.totalAmount,
+            paidAmount: transaction.paidAmount,
+            remainingAmount: remainingAmount,
+            dueDate: transaction.dueDate?.toLocaleDateString('id-ID') || null,
+            staff: transaction.staff.name,
+            
+            // Customer data if credit transaction
+            customer: transaction.payment === 'credit' ? {
+                name: transaction.customer?.name,
+                nik: transaction.customer?.nik,
+                phone: transaction.customer?.phone,
+                address: transaction.customer?.address,
+                imagePath: transaction.customer?.imagePath
+            } : null,
+            
+            // Transaction discount if exists
+            transactionDiscount: transaction.discount ? {
+                name: transaction.discount.name,
+                type: transaction.discount.type,
+                percent: transaction.discount.percentDiscount
+            } : null,
+            
+            // Product details
+            products: transaction.details.map(detail => ({
+                id: detail.product.id,
+                name: detail.product.name,
+                barcode: detail.product.barcode,
+                type: detail.product.type.name,
+                distributor: detail.product.distributor?.name || '-',
+                quantity: detail.quantity,
+                price: detail.product.sellPrice,
+                subtotal: detail.subtotal,
+                // Product discount if exists
+                discount: detail.discount ? {
+                    name: detail.discount.name,
+                    percent: detail.discount.percentDiscount
+                } : null
+            })),
+            
+            // Installment history
+            paymentHistory: transaction.installments.map(installment => ({
+                date: installment.paidAt.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+                amount: installment.amountPaid,
+                method: installment.method.toUpperCase(),
+                note: installment.note || '-'
+            })),
+            
+            // Summary for credit transactions
+            ...(transaction.payment === 'credit' && {
+                creditSummary: {
+                    totalInstallments: transaction.installments.length,
+                    totalPaid: transaction.installments.reduce(
+                        (sum, installment) => sum + installment.amountPaid, 0
+                    ),
+                    lastPayment: transaction.installments[0]?.paidAt.toLocaleDateString('id-ID') || '-'
+                }
+            })
+        };
+
+        return response;
+
+    } catch(e) {
         if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+        throw new ResponseError(500, "Gagal mengambil detail transaksi", e);
     }
-}
+};
 
 const getCustomerDetail = async (req) => {
-    try{
+    try {
+        const { id } = req.params; // Mengambil ID dari route parameter
+        
+        // Validasi ID
+        if (!id || isNaN(Number(id))) {
+            throw new ResponseError(400, "ID customer tidak valid");
+        }
 
-    }catch(e){
+        const customer = await prismaClient.customer.findUnique({
+            where: { id: Number(id) },
+            include: {
+                Transaction: true // Opsional: include transaksi jika diperlukan
+            }
+        });
+
+        // Jika customer tidak ditemukan
+        if (!customer) {
+            throw new ResponseError(404, "Customer tidak ditemukan");
+        }
+
+        return customer;
+    } catch (e) {
         if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+        throw new ResponseError(500, "Gagal mengambil detail customer", e);
     }
-}
+};
 
 const getStaffProfile = async (req) => {
-    try{
+    try {
+        const staff = await prismaClient.user.findUnique({
+            where: {
+                id: parseInt(req.user.id),
+                role: 'kasir', // Pastikan yang login adalah kasir
+                isActive: true // Pastikan akunnya aktif
+            },
+            select: {
+                id: true,
+                username: true,
+                name: true,
+                email: true,
+                phone: true,
+                nik: true,
+                imagePath: true,
+                role: true,
+                createdAt: true,
+                shop: {
+                    select: {
+                        id: true,
+                        name: true,
+                        address: true
+                        // Tambahkan field lain yang diperlukan dari toko
+                    }
+                }
+            }
+        });
 
-    }catch(e){
+        if (!staff) {
+            throw new ResponseError(404, "Staff kasir tidak ditemukan atau tidak aktif");
+        }
+
+        return staff;
+    } catch(e) {
         if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+        throw new ResponseError(500, "Gagal mengambil profil staff", e);
     }
-}
+};
 
 // ================================= UPDATE =================================
-const updateTransaction = async (req) => {
-    try{
+const updateCustomer = async (req) => {
+    const { id } = req.params;
+    const { name, nik, imagePath, address, phone } = req.body;
+    const customerId = Number(id);
 
-    }catch(e){
-        if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+    try {
+        // 1. Validasi ID
+        if (isNaN(customerId) || customerId <= 0) {
+            throw new ResponseError(400, "ID customer tidak valid");
+        }
+
+        // 2. Dapatkan data customer saat ini untuk komparasi
+        const existingCustomer = await prismaClient.customer.findUnique({
+            where: { id: customerId }
+        });
+
+        if (!existingCustomer) {
+            throw new ResponseError(404, "Customer tidak ditemukan");
+        }
+
+        // 3. Siapkan data update dan perubahan
+        const updateData = {};
+        const changes = [];
+
+        // Fungsi helper untuk mencatat perubahan
+        const recordChange = (field, displayName, newValue) => {
+            if (newValue !== undefined && newValue !== existingCustomer[field]) {
+                updateData[field] = newValue;
+                changes.push(`${displayName} diubah dari "${existingCustomer[field]}" menjadi "${newValue}"`);
+            }
+        };
+
+        recordChange('name', 'Nama', name);
+        recordChange('nik', 'NIK', nik);
+        recordChange('imagePath', 'Foto Profil', imagePath);
+        recordChange('address', 'Alamat', address);
+        recordChange('phone', 'Nomor Telepon', phone);
+
+        // 4. Validasi ada perubahan
+        if (Object.keys(updateData).length === 0) {
+            throw new ResponseError(400, "Tidak ada perubahan data");
+        }
+
+        // 5. Eksekusi dalam transaction
+        const [updatedCustomer] = await prismaClient.$transaction([
+            // Update customer
+            prismaClient.customer.update({
+                where: { id: customerId },
+                data: updateData,
+                select: {
+                    id: true,
+                    name: true,
+                    nik: true,
+                    imagePath: true,
+                    address: true,
+                    phone: true
+                }
+            }),
+            // Catat history
+            prismaClient.customerHistory.create({
+                data: {
+                    description: `Perubahan data: ${changes.join(', ')}`,
+                    customerId: customerId
+                }
+            })
+        ]);
+
+        return updatedCustomer;
+
+    } catch (error) {
+        if (error instanceof ResponseError) throw error;
+        throw new ResponseError(500, "Gagal mengupdate customer", error);
     }
-}
-
-const updateCustomer = async (req) => { 
-    try{
-
-    }catch(e){
-        if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
-    }
-}
+};
 
 const updateStaffProfile = async (req) => {
-    try{
+    try {
+        const { name, email, phone, nik, imagePath } = req.body;
+        
+        if (!name && !email && !phone && !nik && !imagePath) {
+            throw new ResponseError(400, "Minimal satu field harus diisi untuk diupdate");
+        }
 
-    }catch(e){
+        // Dapatkan data lama untuk perbandingan
+        const oldData = await prismaClient.user.findUnique({
+            where: { id: req.user.id },
+            select: { name: true, email: true, phone: true, nik: true, imagePath: true }
+        });
+
+        if (!oldData) {
+            throw new ResponseError(404, "Staff tidak ditemukan");
+        }
+
+        const updateData = {};
+        const changes = [];
+        
+        // Buat log perubahan
+        if (name && name !== oldData.name) {
+            updateData.name = name;
+            changes.push(`Nama diubah dari '${oldData.name}' menjadi '${name}'`);
+        }
+        if (email && email !== oldData.email) {
+            updateData.email = email;
+            changes.push(`Email diubah dari '${oldData.email || '[kosong]'}' menjadi '${email}'`);
+        }
+        if (phone && phone !== oldData.phone) {
+            updateData.phone = phone;
+            changes.push(`Nomor telepon diubah dari '${oldData.phone || '[kosong]'}' menjadi '${phone}'`);
+        }
+        if (nik && nik !== oldData.nik) {
+            updateData.nik = nik;
+            changes.push(`NIK diubah dari '${oldData.nik || '[kosong]'}' menjadi '${nik}'`);
+        }
+        if (imagePath && imagePath !== oldData.imagePath) {
+            updateData.imagePath = imagePath;
+            changes.push(`Foto profil diubah`);
+        }
+
+        if (changes.length === 0) {
+            throw new ResponseError(400, "Tidak ada perubahan yang dilakukan");
+        }
+
+        // Gunakan transaction untuk update user dan buat history
+        const [updatedStaff] = await prismaClient.$transaction([
+            prismaClient.user.update({
+                where: {
+                    id: req.user.id,
+                    role: 'kasir',
+                    isActive: true
+                },
+                data: updateData,
+                select: {
+                    id: true,
+                    username: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    nik: true,
+                    imagePath: true,
+                    role: true,
+                    updatedAt: true
+                }
+            }),
+            prismaClient.userHistory.create({
+                data: {
+                    description: `Update profil: ${changes.join(', ')}`,
+                    userId: req.user.id
+                }
+            })
+        ]);
+
+        if (!updatedStaff) {
+            throw new ResponseError(404, "Staff kasir tidak ditemukan atau tidak aktif");
+        }
+
+        return updatedStaff;
+    } catch(e) {
         if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+        throw new ResponseError(500, "Gagal mengupdate profil staff", e);
     }
-}
+};
 
 // ================================= DELETE =================================
-const deleteTransaction = async(req) => {
-    try{
-
-    }catch(e){
-        if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
-    }
-}
-
 const deleteCustomer = async (req) => {
-    try{
+    const { id } = req.params;
+    const customerId = Number(id);
 
-    }catch(e){
-        if (e instanceof ResponseError) throw e;
-        throw new ResponseError(500, "Login gagal", e)
+    try {
+        // 1. Validasi ID
+        if (isNaN(customerId)) {
+            throw new ResponseError(400, "ID customer tidak valid");
+        }
+
+        // 2. Cek apakah customer ada dan aktif
+        const existingCustomer = await prismaClient.customer.findUnique({
+            where: { id: customerId }
+        });
+
+        if (!existingCustomer) {
+            throw new ResponseError(404, "Customer tidak ditemukan");
+        }
+
+        if (existingCustomer.isActive === false) {
+            throw new ResponseError(400, "Customer sudah tidak aktif");
+        }
+
+        // 3. Lakukan soft delete dalam transaction
+        const [deletedCustomer] = await prismaClient.$transaction([
+            // Update status isActive
+            prismaClient.customer.update({
+                where: { id: customerId },
+                data: { isActive: false },
+                select: {
+                    id: true,
+                    name: true,
+                    nik: true,
+                    isActive: true
+                }
+            }),
+            // Catat history
+            prismaClient.customerHistory.create({
+                data: {
+                    description: `Customer dinonaktifkan (soft delete)`,
+                    customerId: customerId
+                }
+            })
+        ]);
+
+        return {
+            message: "Customer berhasil dinonaktifkan",
+            data: deletedCustomer
+        };
+
+    } catch (error) {
+        if (error instanceof ResponseError) throw error;
+        throw new ResponseError(500, "Gagal menonaktifkan customer", error);
     }
-}
+};
 
 // ================================= CREATE =================================
 const createTransaction = async (req) => {
@@ -173,10 +649,10 @@ const createTransaction = async (req) => {
         const stockOutInvoice = generateInvoice('STO');
 
         // Mulai transaksi database
-        return await prisma.$transaction(async (prisma) => {
+        return await prismaClient.$transaction(async (prisma) => {
             // 1. Validasi stok dan harga untuk semua item
             for (const item of items) {
-                const shopProduct = await prisma.shopProduct.findUnique({
+                const shopProduct = await prismaClient.shopProduct.findUnique({
                     where: {
                         shopId_productId: {
                             shopId,
@@ -203,7 +679,7 @@ const createTransaction = async (req) => {
             }
 
             // 2. Buat transaksi utama
-            const transaction = await prisma.transaction.create({
+            const transaction = await prismaClient.transaction.create({
                 data: {
                     invoice: transactionInvoice,
                     customerId: payment === 'credit' ? customer.id : null,
@@ -221,7 +697,7 @@ const createTransaction = async (req) => {
             });
 
             // 3. Buat stock out
-            const stockOut = await prisma.stockOut.create({
+            const stockOut = await prismaClient.stockOut.create({
                 data: {
                     invoice: stockOutInvoice,
                     reason: `Penjualan - ${transactionInvoice}`,
@@ -235,7 +711,7 @@ const createTransaction = async (req) => {
             // 4. Proses setiap item
             const transactionDetails = await Promise.all(items.map(async (item) => {
                 // Buat detail transaksi
-                const detail = await prisma.transactionDetail.create({
+                const detail = await prismaClient.transactionDetail.create({
                     data: {
                         productId: item.productId,
                         transactionId: transaction.id,
@@ -246,7 +722,7 @@ const createTransaction = async (req) => {
                 });
 
                 // Buat detail stock out
-                await prisma.stockOutDetail.create({
+                await prismaClient.stockOutDetail.create({
                     data: {
                         productId: item.productId,
                         stockOutId: stockOut.id,
@@ -256,7 +732,7 @@ const createTransaction = async (req) => {
                 });
 
                 // Update stok
-                await prisma.shopProduct.update({
+                await prismaClient.shopProduct.update({
                     where: {
                         shopId_productId: {
                             shopId,
@@ -275,7 +751,7 @@ const createTransaction = async (req) => {
 
             // 5. Jika transaksi kredit dan ada pembayaran, buat installment
             if (payment === 'credit' && paidAmount > 0) {
-                await prisma.installment.create({
+                await prismaClient.installment.create({
                     data: {
                         transactionId: transaction.id,
                         amountPaid: parseFloat(paidAmount),
@@ -306,7 +782,7 @@ const createInstallment = async (req) => {
         if (e instanceof ResponseError) throw e;
         throw new ResponseError(500, "Login gagal", e)
     }
-}
+};
 
 // Fungsi generate invoice yang lebih robust
 function generateInvoice(prefix) {
@@ -327,8 +803,6 @@ export default {
     getCustomerDetail,
     getStaffProfile,
     updateCustomer,
-    updateTransaction,
     updateStaffProfile,
     deleteCustomer,
-    deleteTransaction
 }

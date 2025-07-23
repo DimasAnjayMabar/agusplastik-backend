@@ -1,0 +1,17 @@
+sekarang lanjutannya, buat update staff profile yang memakai req.user.id sebagai parameter
+yang boleh diedit hanya : 
+name
+email
+phone
+nik
+imagePath
+
+ini adalah rangka servicenya : 
+const updateCustomer = async (req) => { 
+    try{
+
+    }catch(e){
+        if (e instanceof ResponseError) throw e;
+        throw new ResponseError(500, "Login gagal", e)
+    }
+}
