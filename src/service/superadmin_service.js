@@ -40,6 +40,10 @@ const registerSuperadmin = async (request) => {
 
 const registerAdmin = async (request) => {
   try {
+    if (request.user.role !== 'superadmin') {
+      throw new ResponseError(403, "Hanya superadmin yang dapat membuat admin");
+    }
+
     const register = validate(registerAdminValidation, request.body);
     const shopId = request.params.shopId; // Perbaikan di sini
 
@@ -81,8 +85,8 @@ const registerAdmin = async (request) => {
           phone: register.phone,
           nik: register.nik,
           imagePath: register.imagePath,
-          role: "admin"
-          // shopId dihapus karena relasi cukup dari shop.adminId
+          role: "admin",
+          shopId: register.shopId
         }
       });
 
@@ -110,6 +114,10 @@ const registerAdmin = async (request) => {
 
 const registerShop = async (req) => {
   try{
+    if (request.user.role !== 'superadmin') {
+      throw new ResponseError(403, "Hanya superadmin yang dapat membuat admin");
+    }
+
     const register = validate(registerShopValidation, req.body)
 
     const findExistingUser = await prismaClient.shop.count({
@@ -134,7 +142,7 @@ const registerShop = async (req) => {
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Gagal registrasi toko", e)
   }
-}
+};
 
 // ================================= LOGIN =================================
 const loginSuperadmin = async (request) => {
@@ -165,32 +173,79 @@ const loginSuperadmin = async (request) => {
       throw new ResponseError(403, "Akses hanya untuk superadmin");
     }
 
-    // Cek token aktif (30 menit terakhir)
+    // 1. Cari token existing (aktif/expired)
     const existingToken = await prismaClient.userToken.findFirst({
-      where: {
-        userId: user.id,
-        lastActive: { gt: new Date(Date.now() - 30 * 60 * 1000) }
-      }
+      where: { userId: user.id }
     });
 
-    let token;
+    // 2. Generate token baru
+    const newToken = uuid();
+
+    // 3. Update atau Create
     if (existingToken) {
-      // Pakai token yang ada
-      token = existingToken.token;
+      // Update token yang ada (replace nilai lama)
+      await prismaClient.userToken.update({
+        where: { id: existingToken.id },
+        data: {
+          token: newToken, // Nilai token di-overwrite
+          lastActive: new Date(),
+          expiresIn: 7 * 24 * 60 * 60 // Reset expiry
+        }
+      });
     } else {
-      // Buat token baru
-      token = uuid();
+      // Buat baru jika belum ada
       await prismaClient.userToken.create({
         data: {
           userId: user.id,
-          token: token,
+          token: newToken,
           lastActive: new Date(),
-          expiresIn: 7 * 24 * 60 * 60 // 7 hari
+          expiresIn: 7 * 24 * 60 * 60
         }
       });
     }
 
-    return { token };
+    return { token: newToken };
+  } catch(e) {
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Login gagal", e);
+  }
+};
+
+const loginSuperadminSilent = async (request) => {
+  try {
+    // 1. Ambil token dari header
+    const authHeader = request.headers.authorization;
+    if (!authHeader) throw new ResponseError(401, "Token tidak ditemukan");
+
+    const token = authHeader.split(' ')[1]; // "Bearer <token>"
+
+    // 2. Cek validitas token
+    const userToken = await prismaClient.userToken.findUnique({
+      where: { token },
+      include: { user: true }
+    });
+
+    // 3. Validasi
+    if (!userToken || !userToken.user.isActive) {
+      throw new ResponseError(401, "Token tidak valid");
+    }
+
+    if (userToken.user.role !== "superadmin") {
+      throw new ResponseError(403, "Akses hanya untuk superadmin");
+    }
+
+    // 4. Perpanjang masa aktif token
+    await prismaClient.userToken.update({
+      where: { token },
+      data: { lastActive: new Date() }
+    });
+
+    // 5. Return pesan sukses saja
+    return { 
+      message: "Login sukses",
+      status: "authenticated"
+    };
+
   } catch(e) {
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Login gagal", e);
@@ -200,6 +255,10 @@ const loginSuperadmin = async (request) => {
 // ================================= GET ALL ================================= 
 const getAllShop = async (request) => {
   try {
+    if (request.user.role !== 'superadmin') {
+      throw new ResponseError(403, "Hanya superadmin yang dapat membuat admin");
+    }
+
     const search = request.query.search || "";
 
     const shops = await prismaClient.shop.findMany({
@@ -208,13 +267,11 @@ const getAllShop = async (request) => {
           {
             name: {
               contains: search,
-              mode: "insensitive",
             },
           },
           {
             address: {
               contains: search,
-              mode: "insensitive",
             },
           },
         ],
@@ -243,6 +300,19 @@ const getAllShop = async (request) => {
     return formattedShops;
   } catch (e) {
     if (e instanceof ResponseError) throw e;
+    
+    // Debug detail
+    console.error("Error details:", {
+      message: e.message,       // Pesan error
+      stack: e.stack,           // Stack trace
+      name: e.name,             // Nama error
+      ...(e.code && { code: e.code }),             // Kode error (jika ada, khusus Prisma)
+      ...(e.meta && { meta: e.meta }),             // Meta data error (jika ada, khusus Prisma)
+      ...(e.clientVersion && { clientVersion: e.clientVersion }), // Versi Prisma
+      timestamp: new Date().toISOString(), // Waktu error
+      queryParams: request.query,         // Parameter query yang menyebabkan error
+    });
+    
     throw new ResponseError(500, "Gagal mengambil data toko");
   }
 };
@@ -250,13 +320,17 @@ const getAllShop = async (request) => {
 // ================================= GET BY ID =================================
 const getShopAdmin = async (request) => {
   try {
-    const { shopId } = request.params;
+    if (request.user.role !== 'superadmin') {
+      throw new ResponseError(403, "Hanya superadmin yang dapat membuat admin");
+    }
+
+    const shopId  = request.params.shopId;
 
     if (!shopId) {
       throw new ResponseError(400, "Shop ID tidak boleh kosong");
     }
 
-    const shop = await prisma.shop.findUnique({
+    const shop = await prismaClient.shop.findUnique({
       where: { id: parseInt(shopId) },
       select: {
         id: true,
@@ -288,13 +362,13 @@ const getShopAdmin = async (request) => {
 
 const getShopStaffs = async (request) => {
   try {
-    const { shopId } = request.params;
+    const shopId = request.params.shopId;
 
     if (!shopId) {
       throw new ResponseError(400, "Shop ID tidak boleh kosong");
     }
 
-    const staffs = await prisma.user.findMany({
+    const staffs = await prismaClient.user.findMany({
       where: {
         shopId: parseInt(shopId),
         role: { not: "admin" }
@@ -899,5 +973,6 @@ export default{
   softDeleteStaff,
   transferAdminToShop,
   transferMultipleStaff,
-  registerShop
+  registerShop,
+  loginSuperadminSilent
 }

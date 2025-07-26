@@ -5,6 +5,7 @@ import { authMiddleware } from "../middleware/auth_middleware.js"
 const superAdminRouter = new express.Router()
 superAdminRouter.post('/registrasi/superadmin', superAdminController.registerSuperadmin)
 superAdminRouter.post('/login/superadmin', superAdminController.loginSuperadmin)
+superAdminRouter.get('/login/superadmin-silent', superAdminController.loginSuperadminSilent)
 superAdminRouter.post('/superadmin/registrasi/admin/:shopId', authMiddleware, superAdminController.registerAdmin)
 superAdminRouter.post('/superadmin/registrasi/toko', authMiddleware, superAdminController.registerShop)
 superAdminRouter.get('/superadmin/get-all-shop', authMiddleware, superAdminController.getAllShop)

@@ -50,6 +50,18 @@ const loginSuperadmin = async (req, res, next) => {
     }
 }
 
+const loginSuperadminSilent = async (req, res, next) => { 
+    try{
+        const result = await superadminService.loginSuperadminSilent(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 // ================================= GET ALL =================================
 const getAllShop = async (req, res, next) => { 
     try{
@@ -202,5 +214,6 @@ export default {
   softDeleteStaff,
   transferAdminToShop,
   transferMultipleStaff,
-  registerShop
+  registerShop,
+  loginSuperadminSilent
 }
