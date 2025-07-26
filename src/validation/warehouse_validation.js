@@ -49,5 +49,5 @@ const updateProduct = Joi.object({
 })
 
 export{
-    login, createStockInSchema, createDistributorValidation, updateDistributor, updateDistributor
+    login, createStockInSchema, createDistributorValidation, updateDistributor, updateProduct
 }

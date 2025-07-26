@@ -59,7 +59,7 @@ const updateCustomer = Joi.object({
 
 const updateTransaction = Joi.object({
     createdAt : Joi.date().timestamp().optional().allow(null),
-    status : Joi.string().max().optional().allow(null),
+    status : Joi.string().max(10).optional().allow(null),
     payment : Joi.string().max(10).optional().allow(null)
 })
 

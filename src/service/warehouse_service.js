@@ -3,7 +3,7 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { createStockInSchema, login, createDistributor, createDistributorValidation } from "../validation/warehouse_validation.js"
+import { createStockInSchema, login, createDistributorValidation } from "../validation/warehouse_validation.js"
 
 // ================================= LOGIN =================================
 const loginStaffGudang = async (request) => {

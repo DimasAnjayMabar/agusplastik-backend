@@ -23,6 +23,11 @@ const registerAdminValidation = Joi.object({
     shopId : Joi.number().integer().optional().allow(null)
 })
 
+const registerShopValidation = Joi.object({
+    name : Joi.string().max(30).required(),
+    address : Joi.string().required()
+})
+
 // LOGIN 
 const login = Joi.object({
     username : Joi.string().max(20).required(),
@@ -60,5 +65,6 @@ export {
     login, 
     updateSuperadminValidation,
     updateAdminValidation, 
-    updateStaffValidation
+    updateStaffValidation,
+    registerShopValidation
 }

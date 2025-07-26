@@ -3,7 +3,7 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { registerSuperadminValidation, login, updateAdminValidation, updateStaffValidation, registerAdminValidation, updateSuperadminValidation } from "../validation/superadmin_validation.js";
+import { registerSuperadminValidation, login, updateAdminValidation, updateStaffValidation, registerAdminValidation, updateSuperadminValidation, registerShopValidation } from "../validation/superadmin_validation.js";
 
 // ================================= REGISTRASI =================================
 const registerSuperadmin = async (request) => {
@@ -39,44 +39,107 @@ const registerSuperadmin = async (request) => {
 }
 
 const registerAdmin = async (request) => {
-  try{
-     const register = validate(registerAdminValidation, request.body);
+  try {
+    const register = validate(registerAdminValidation, request.body);
+    const shopId = request.params.shopId; // Perbaikan di sini
 
-    const findExistingUser = await prismaClient.user.count({
-        where: { username: register.username }
+    // 1. Validasi shop terlebih dahulu
+    const shop = await prismaClient.shop.findUnique({
+      where: { id: Number(shopId) }, // Pastikan konversi ke Number
+      select: { adminId: true }
     });
 
-    if (findExistingUser === 1) {
-        throw new ResponseError(400, "Username sudah terdaftar");
+    if (!shop) {
+      throw new ResponseError(404, "Toko tidak ditemukan");
     }
 
-    register.password = await bcrypt.hash(register.password, 10);
+    if (shop.adminId) {
+      throw new ResponseError(400, "Toko ini sudah memiliki admin");
+    }
 
-    register.adminId = request.user.id;
+    // 2. Cek username availability
+    const existingUser = await prismaClient.user.count({
+      where: { username: register.username }
+    });
 
-    register.role = "admin";
+    if (existingUser > 0) {
+      throw new ResponseError(400, "Username sudah terdaftar");
+    }
 
-    const result = await prismaClient.user.create({
-        data: register,
-        select: {
-            username: true,
-            name: true,
-            role: true,
-            adminId: true
+    // 3. Hash password
+    const hashedPassword = await bcrypt.hash(register.password, 10);
+
+    // 4. Buat admin dalam transaction
+    const result = await prismaClient.$transaction(async (prisma) => {
+      // Buat user admin (tanpa shopId karena relasi dari shop.adminId)
+      const newAdmin = await prisma.user.create({
+        data: {
+          username: register.username,
+          password: hashedPassword,
+          name: register.name,
+          email: register.email,
+          phone: register.phone,
+          nik: register.nik,
+          imagePath: register.imagePath,
+          role: "admin"
+          // shopId dihapus karena relasi cukup dari shop.adminId
         }
+      });
+
+      // Update shop dengan adminId baru
+      await prisma.shop.update({
+        where: { id: Number(shopId) },
+        data: { adminId: newAdmin.id }
+      });
+
+      return {
+        id: newAdmin.id,
+        username: newAdmin.username,
+        name: newAdmin.name,
+        role: newAdmin.role,
+        shopId: Number(shopId)
+      };
     });
 
     return result;
+  } catch (e) {
+    if (e instanceof ResponseError) throw e;
+    throw new ResponseError(500, "Gagal registrasi admin", e.message); // Tambahkan e.message untuk detail error
+  }
+};
+
+const registerShop = async (req) => {
+  try{
+    const register = validate(registerShopValidation, req.body)
+
+    const findExistingUser = await prismaClient.shop.count({
+        where : {
+          name : register.name
+      }
+    })
+
+    if(findExistingUser === 1){
+      throw new ResponseError(400, "Toko terdaftar")
+    }
+
+    const result = await prismaClient.shop.create({
+        data : register,
+        select : {
+            name : true
+        }
+    })
+
+    return result
   }catch(e){
     if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi staff gudang", e)
-  }    
-};
+    throw new ResponseError(500, "Gagal registrasi toko", e)
+  }
+}
 
 // ================================= LOGIN =================================
 const loginSuperadmin = async (request) => {
-  try{
-    const loginrequest = validate(login, request);
+  try {
+    const loginrequest = validate(login, request.body);
 
     const user = await prismaClient.user.findUnique({
       where: { username: loginrequest.username },
@@ -102,36 +165,50 @@ const loginSuperadmin = async (request) => {
       throw new ResponseError(403, "Akses hanya untuk superadmin");
     }
 
-    const token = uuid();
-
-    await prismaClient.userToken.create({
-      data: {
+    // Cek token aktif (30 menit terakhir)
+    const existingToken = await prismaClient.userToken.findFirst({
+      where: {
         userId: user.id,
-        token: token,
-        lastActive: new Date(),
-        expiresIn: 7 * 24 * 60 * 60, 
-      },
+        lastActive: { gt: new Date(Date.now() - 30 * 60 * 1000) }
+      }
     });
 
+    let token;
+    if (existingToken) {
+      // Pakai token yang ada
+      token = existingToken.token;
+    } else {
+      // Buat token baru
+      token = uuid();
+      await prismaClient.userToken.create({
+        data: {
+          userId: user.id,
+          token: token,
+          lastActive: new Date(),
+          expiresIn: 7 * 24 * 60 * 60 // 7 hari
+        }
+      });
+    }
+
     return { token };
-  }catch(e){
+  } catch(e) {
     if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Login gagal", e)
+    throw new ResponseError(500, "Login gagal", e);
   }
-}
+};
 
 // ================================= GET ALL ================================= 
 const getAllShop = async (request) => {
   try {
-    const search = request.query.search || ""; // ambil query `search`, default kosong
+    const search = request.query.search || "";
 
-    const shops = await prisma.shop.findMany({
+    const shops = await prismaClient.shop.findMany({
       where: {
         OR: [
           {
             name: {
               contains: search,
-              mode: "insensitive", // pencarian tidak case-sensitive
+              mode: "insensitive",
             },
           },
           {
@@ -143,25 +220,27 @@ const getAllShop = async (request) => {
         ],
       },
       select: {
-        id: true,
         name: true,
         address: true,
+        adminId: true,
         admin: {
           select: {
-            id: true,
             name: true,
-            username: true,
-          },
-        },
-        _count: {
-          select: {
-            users: true, // jumlah pegawai yang bekerja di toko ini
           },
         },
       },
     });
 
-    return shops;
+    // Format hasil sesuai kebutuhan
+    const formattedShops = shops.map(shop => ({
+      name: shop.name,
+      address: shop.address,
+      admin: shop.adminId 
+        ? shop.admin.name 
+        : "belum ada admin di toko ini",
+    }));
+
+    return formattedShops;
   } catch (e) {
     if (e instanceof ResponseError) throw e;
     throw new ResponseError(500, "Gagal mengambil data toko");
@@ -819,5 +898,6 @@ export default{
   softDeleteAdmin,
   softDeleteStaff,
   transferAdminToShop,
-  transferMultipleStaff
+  transferMultipleStaff,
+  registerShop
 }

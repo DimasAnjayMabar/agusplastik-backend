@@ -25,6 +25,18 @@ const registerAdmin = async (req, res, next) => {
     }
 }
 
+const registerShop = async (req, res, next) => { 
+    try{
+        const result = await superadminService.registerShop(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 // ================================= LOGIN =================================
 const loginSuperadmin = async (req, res, next) => { 
     try{
@@ -189,5 +201,6 @@ export default {
   softDeleteAdmin,
   softDeleteStaff,
   transferAdminToShop,
-  transferMultipleStaff
+  transferMultipleStaff,
+  registerShop
 }
