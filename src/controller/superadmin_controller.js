@@ -88,9 +88,21 @@ const getShopAdmin = async (req, res, next) => {
     }
 }
 
-const getShopStaffs = async (req, res, next) => { 
+const getStaffGudang = async (req, res, next) => { 
     try{
-        const result = await superadminService.getShopStaffs(req)
+        const result = await superadminService.getStaffGudang(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
+const getStaffKasir = async (req, res, next) => { 
+    try{
+        const result = await superadminService.getStaffKasir(req)
 
         res.status(200).json({
             data : result
@@ -205,7 +217,8 @@ export default {
   loginSuperadmin, 
     getAllShop,
     getShopAdmin,
-  getShopStaffs, 
+  getStaffGudang,
+  getStaffKasir, 
   getShopProducts,
   updateSuperadminProfile,
   updateAdmin, 

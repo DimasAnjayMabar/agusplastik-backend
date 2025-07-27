@@ -33,8 +33,24 @@ const registerSuperadmin = async (request) => {
 
     return result
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi admin", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal registrasi superadmin", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 }
 
@@ -107,8 +123,24 @@ const registerAdmin = async (request) => {
 
     return result;
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi admin", e.message); // Tambahkan e.message untuk detail error
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal registrasi admin", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -139,8 +171,24 @@ const registerShop = async (req) => {
 
     return result
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi toko", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal registrasi toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -206,8 +254,24 @@ const loginSuperadmin = async (request) => {
 
     return { token: newToken };
   } catch(e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Login gagal", e);
+console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -247,8 +311,24 @@ const loginSuperadminSilent = async (request) => {
     };
 
   } catch(e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Login gagal", e);
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -299,21 +379,24 @@ const getAllShop = async (request) => {
 
     return formattedShops;
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
+    console.error('Error :', e);
     
-    // Debug detail
-    console.error("Error details:", {
-      message: e.message,       // Pesan error
-      stack: e.stack,           // Stack trace
-      name: e.name,             // Nama error
-      ...(e.code && { code: e.code }),             // Kode error (jika ada, khusus Prisma)
-      ...(e.meta && { meta: e.meta }),             // Meta data error (jika ada, khusus Prisma)
-      ...(e.clientVersion && { clientVersion: e.clientVersion }), // Versi Prisma
-      timestamp: new Date().toISOString(), // Waktu error
-      queryParams: request.query,         // Parameter query yang menyebabkan error
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
     });
-    
-    throw new ResponseError(500, "Gagal mengambil data toko");
   }
 };
 
@@ -355,12 +438,28 @@ const getShopAdmin = async (request) => {
 
     return shop;
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil admin toko");
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
-const getShopStaffs = async (request) => {
+const getStaffGudang = async (request) => {
   try {
     const shopId = request.params.shopId;
 
@@ -371,7 +470,7 @@ const getShopStaffs = async (request) => {
     const staffs = await prismaClient.user.findMany({
       where: {
         shopId: parseInt(shopId),
-        role: { not: "admin" }
+        role: "gudang"
       },
       select: {
         id: true,
@@ -388,37 +487,109 @@ const getShopStaffs = async (request) => {
       staffs
     };
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil data pegawai toko");
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
-const getShopProducts = async (request) => {
+const getStaffKasir = async (request) => {
   try {
-    const { shopId } = request.params;
-    const { search = "", minPrice, maxPrice } = request.query;
+    const shopId = request.params.shopId;
 
     if (!shopId) {
       throw new ResponseError(400, "Shop ID tidak boleh kosong");
     }
 
-    const filters = {
+    const staffs = await prismaClient.user.findMany({
+      where: {
+        shopId: parseInt(shopId),
+        role: "kasir"
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        role: true,
+        email: true,
+        phone: true,
+      }
+    });
+
+    return {
       shopId: parseInt(shopId),
+      staffs
+    };
+  } catch (e) {
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
+  }
+};
+
+const getShopProducts = async (request) => {
+  try {
+    const shopId = request.params.shopId;
+    const { search = "", minPrice, maxPrice } = request.query;
+
+    // Validasi
+    if (!shopId) {
+      throw new ResponseError(400, "Shop ID tidak boleh kosong");
+    }
+
+    const parsedShopId = parseInt(shopId);
+    if (isNaN(parsedShopId)) {
+      throw new ResponseError(400, "Shop ID harus berupa angka");
+    }
+
+    // Bangun filter
+    const filters = {
+      shopId: parsedShopId,
       product: {
         name: {
           contains: search,
-          mode: "insensitive",
         },
+        // Tambahkan filter harga jika ada
+        ...(minPrice || maxPrice ? {
+          sellPrice: {
+            ...(minPrice ? { gte: new Prisma.Decimal(minPrice) } : {}),
+            ...(maxPrice ? { lte: new Prisma.Decimal(maxPrice) } : {})
+          }
+        } : {})
       },
     };
 
-    if (minPrice || maxPrice) {
-      filters.product.price = {};
-      if (minPrice) filters.product.price.gte = parseFloat(minPrice);
-      if (maxPrice) filters.product.price.lte = parseFloat(maxPrice);
-    }
-
-    const shopProducts = await prisma.shopProduct.findMany({
+    const shopProducts = await prismaClient.shopProduct.findMany({
       where: filters,
       select: {
         stock: true,
@@ -426,28 +597,74 @@ const getShopProducts = async (request) => {
           select: {
             id: true,
             name: true,
-            description: true,
-            price: true,
-            image: true,
-            createdAt: true,
-            updatedAt: true,
+            buyPrice: true,
+            sellPrice: true,
+            imagePath: true,
+            barcode: true,
+            isActive: true,
+            distributor: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                email: true,
+                ecommerceLink: true,
+                imagePath: true,
+                address: true
+              }
+            },
+            type: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
           }
+        }
+      },
+      orderBy: {
+        product: {
+          name: 'asc'
         }
       }
     });
 
+    // Transformasi data
     const products = shopProducts.map((item) => ({
       ...item.product,
-      stock: item.stock
+      stock: item.stock,
+      // Konversi Decimal ke number jika diperlukan
+      buyPrice: item.product.buyPrice.toNumber(),
+      sellPrice: item.product.sellPrice.toNumber(),
+      // Distributor dan Type sudah termasuk dalam select
+      distributor: item.product.distributor,
+      type: item.product.type
     }));
 
     return {
-      shopId: parseInt(shopId),
-      products
+      shopId: parsedShopId,
+      products,
+      count: products.length
     };
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil data produk toko");
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
                 
@@ -516,8 +733,24 @@ const updateSuperadminProfile = async (req) => {
 
     return updated;
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengupdate profil superadmin", e);
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -594,8 +827,24 @@ const updateAdmin = async (req) => {
 
     return updated;
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengupdate admin", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -672,8 +921,24 @@ const updateStaff = async (req) => {
 
     return updated;
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengupdate staff", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -728,8 +993,24 @@ const softDeleteAdmin = async (req) => {
 
     return { message: "Admin berhasil dinonaktifkan" };
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal menonaktifkan admin", e);
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -964,7 +1245,8 @@ export default{
   loginSuperadmin, 
   getAllShop,
   getShopAdmin,
-  getShopStaffs, 
+  getStaffGudang,
+  getStaffKasir, 
   getShopProducts,
   updateSuperadminProfile,
   updateAdmin, 
