@@ -57,6 +57,7 @@ const updateStaffValidation = Joi.object({
     phone : Joi.string().max(20).optional().allow(null), 
     nik : Joi.string().max(50).optional(),
     imagePath : Joi.string().optional().allow(null),
+    role : Joi.string().max(10).optional().allow(null)
 })
 
 export { 

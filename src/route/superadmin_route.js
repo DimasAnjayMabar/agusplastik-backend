@@ -19,7 +19,7 @@ superAdminRouter.patch('/superadmin/update-staff/:staffId', authMiddleware, supe
 superAdminRouter.delete('/superadmin/delete-admin/:adminId', authMiddleware, superAdminController.softDeleteAdmin)
 superAdminRouter.delete('/superadmin/delete-staff/:staffId', authMiddleware, superAdminController.softDeleteStaff)
 superAdminRouter.post('/superadmin/transfer-admin', authMiddleware, superAdminController.transferAdminToShop)
-superAdminRouter.post('/superadmin/transfer-staff', superAdminController.transferMultipleStaff)
+superAdminRouter.post('/superadmin/transfer-staff', authMiddleware, superAdminController.transferMultipleStaff)
 
 export{
     superAdminRouter

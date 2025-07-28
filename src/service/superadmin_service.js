@@ -39,7 +39,7 @@ const registerSuperadmin = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -61,23 +61,53 @@ const registerAdmin = async (request) => {
     }
 
     const register = validate(registerAdminValidation, request.body);
-    const shopId = request.params.shopId; // Perbaikan di sini
+    const shopId = request.params.shopId;
 
-    // 1. Validasi shop terlebih dahulu
+    // 1. Validasi shop dan cek admin yang ada
     const shop = await prismaClient.shop.findUnique({
-      where: { id: Number(shopId) }, // Pastikan konversi ke Number
-      select: { adminId: true }
+      where: { id: Number(shopId) },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            role: true,
+            name: true
+          }
+        }
+      }
     });
 
     if (!shop) {
       throw new ResponseError(404, "Toko tidak ditemukan");
     }
 
-    if (shop.adminId) {
-      throw new ResponseError(400, "Toko ini sudah memiliki admin");
+    // 2. Cek apakah shop sudah memiliki admin
+    if (shop.admin) {
+      // Jika admin yang ada adalah superadmin, lepaskan dari toko
+      if (shop.admin.role === 'superadmin') {
+        await prismaClient.$transaction([
+          prismaClient.shop.update({
+            where: { id: Number(shopId) },
+            data: { adminId: null }
+          }),
+          prismaClient.user.update({
+            where: { id: shop.admin.id },
+            data: { shopId: null }
+          }),
+          prismaClient.userHistory.create({
+            data: {
+              userId: shop.admin.id,
+              description: `Superadmin '${request.user.name}' melepas '${shop.admin.name}' dari toko '${shop.name}' karena akan ditetapkan admin baru`
+            }
+          })
+        ]);
+      } else {
+        // Jika admin yang ada bukan superadmin, tolak permintaan
+        throw new ResponseError(400, "Toko ini sudah memiliki admin");
+      }
     }
 
-    // 2. Cek username availability
+    // 3. Cek username availability
     const existingUser = await prismaClient.user.count({
       where: { username: register.username }
     });
@@ -86,12 +116,12 @@ const registerAdmin = async (request) => {
       throw new ResponseError(400, "Username sudah terdaftar");
     }
 
-    // 3. Hash password
+    // 4. Hash password
     const hashedPassword = await bcrypt.hash(register.password, 10);
 
-    // 4. Buat admin dalam transaction
+    // 5. Buat admin dalam transaction
     const result = await prismaClient.$transaction(async (prisma) => {
-      // Buat user admin (tanpa shopId karena relasi dari shop.adminId)
+      // Buat user admin
       const newAdmin = await prisma.user.create({
         data: {
           username: register.username,
@@ -102,7 +132,7 @@ const registerAdmin = async (request) => {
           nik: register.nik,
           imagePath: register.imagePath,
           role: "admin",
-          shopId: register.shopId
+          shopId: null
         }
       });
 
@@ -112,12 +142,20 @@ const registerAdmin = async (request) => {
         data: { adminId: newAdmin.id }
       });
 
+      // Catat di history
+      await prisma.userHistory.create({
+        data: {
+          userId: newAdmin.id,
+          description: `Superadmin '${request.user.name}' mendaftarkan '${newAdmin.name}' sebagai admin toko '${shop.name}'`
+        }
+      });
+
       return {
         id: newAdmin.id,
         username: newAdmin.username,
         name: newAdmin.name,
         role: newAdmin.role,
-        shopId: Number(shopId)
+        shopId: null
       };
     });
 
@@ -144,13 +182,13 @@ const registerAdmin = async (request) => {
   }
 };
 
-const registerShop = async (req) => {
+const registerShop = async (request) => {
   try{
     if (request.user.role !== 'superadmin') {
       throw new ResponseError(403, "Hanya superadmin yang dapat membuat admin");
     }
 
-    const register = validate(registerShopValidation, req.body)
+    const register = validate(registerShopValidation, request.body)
 
     const findExistingUser = await prismaClient.shop.count({
         where : {
@@ -177,7 +215,7 @@ const registerShop = async (req) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -260,7 +298,7 @@ console.error('Error :', e);
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -268,7 +306,7 @@ console.error('Error :', e);
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal login superadmin", {
       originalError: e.message,
       stack: e.stack
     });
@@ -317,7 +355,7 @@ const loginSuperadminSilent = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -325,7 +363,7 @@ const loginSuperadminSilent = async (request) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal login superadmin, mengalihkan ke login manual", {
       originalError: e.message,
       stack: e.stack
     });
@@ -385,7 +423,7 @@ const getAllShop = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -393,7 +431,7 @@ const getAllShop = async (request) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal mengambil data toko", {
       originalError: e.message,
       stack: e.stack
     });
@@ -444,7 +482,7 @@ const getShopAdmin = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -452,7 +490,7 @@ const getShopAdmin = async (request) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal mengambil data admin", {
       originalError: e.message,
       stack: e.stack
     });
@@ -493,7 +531,7 @@ const getStaffGudang = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -501,7 +539,7 @@ const getStaffGudang = async (request) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal mengambil data staff gudang", {
       originalError: e.message,
       stack: e.stack
     });
@@ -542,7 +580,7 @@ const getStaffKasir = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -550,7 +588,7 @@ const getStaffKasir = async (request) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal mengambil data staff kasir", {
       originalError: e.message,
       stack: e.stack
     });
@@ -653,7 +691,7 @@ const getShopProducts = async (request) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -669,15 +707,15 @@ const getShopProducts = async (request) => {
 };
                 
 // ================================= UPDATE =================================
-const updateSuperadminProfile = async (req) => {
+const updateSuperadminProfile = async (request) => {
   try {
-    const superadminId = req.user.id;
+    const superadminId = request.user.id;
 
-    if (req.user.role !== "superadmin") {
+    if (request.user.role !== "superadmin") {
       throw new ResponseError(403, "Hanya superadmin yang dapat mengubah profilnya");
     }
 
-    const updateRequest = validate(updateSuperadminValidation, req.body);
+    const updaterequest = validate(updateSuperadminValidation, request.body);
 
     const superadmin = await prismaClient.user.findFirst({
       where: {
@@ -692,11 +730,11 @@ const updateSuperadminProfile = async (req) => {
     }
 
     const changes = [];
-    const fields = ['name', 'email', 'phone', 'nik', 'photoPath'];
+    const fields = ['name', 'email', 'phone', 'nik', 'imagePath'];
 
     for (const field of fields) {
       const oldValue = superadmin[field];
-      const newValue = updateRequest[field];
+      const newValue = updaterequest[field];
 
       if (typeof newValue !== 'undefined' && newValue !== oldValue) {
         changes.push(`${field} dari '${oldValue ?? "-"}' ke '${newValue ?? "-"}'`);
@@ -709,7 +747,7 @@ const updateSuperadminProfile = async (req) => {
 
     const updated = await prismaClient.user.update({
       where: { id: superadminId },
-      data: updateRequest,
+      data: updaterequest,
       select: {
         id: true,
         username: true,
@@ -718,7 +756,7 @@ const updateSuperadminProfile = async (req) => {
         phone: true,
         email: true,
         nik: true,
-        photoPath: true,
+        imagePath: true,
         isActive: true,
         shopId: true,
       },
@@ -727,7 +765,7 @@ const updateSuperadminProfile = async (req) => {
     await prismaClient.userHistory.create({
       data: {
         userId: superadminId,
-        description: `Superadmin '${req.user.username}' mengubah ${changes.join(', ')}`,
+        description: `Superadmin '${request.user.username}' mengubah ${changes.join(', ')}`,
       },
     });
 
@@ -739,7 +777,7 @@ const updateSuperadminProfile = async (req) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -747,26 +785,26 @@ const updateSuperadminProfile = async (req) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal update profil superadmin", {
       originalError: e.message,
       stack: e.stack
     });
   }
 };
 
-const updateAdmin = async (req) => {
+const updateAdmin = async (request) => {
   try{
-    const staffId = parseInt(req.params);
+    const staffId = parseInt(request.params.adminId);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID admin tidak valid");
     }
 
-    const user = req.user;
+    const user = request.user;
     if (user.role !== "superadmin") {
       throw new ResponseError(403, "Hanya superadmin yang dapat mengubah data staff");
     }
 
-    const updateRequest = validate(updateAdminValidation, req.body);
+    const updaterequest = validate(updateAdminValidation, request.body);
 
     const staff = await prismaClient.user.findFirst({
       where: {
@@ -781,11 +819,11 @@ const updateAdmin = async (req) => {
     }
 
     const changes = [];
-    const fields = ['name', 'email', 'phone', 'nik', 'photoPath'];
+    const fields = ['name', 'email', 'phone', 'nik', 'imagePath'];
 
     for (const field of fields) {
       const oldValue = staff[field];
-      const newValue = updateRequest[field];
+      const newValue = updaterequest[field];
 
       if (
         typeof newValue !== 'undefined' &&
@@ -803,7 +841,7 @@ const updateAdmin = async (req) => {
 
     const updated = await prismaClient.user.update({
       where: { id: staffId },
-      data: updateRequest,
+      data: updaterequest,
       select: {
         id: true,
         username: true,
@@ -812,7 +850,7 @@ const updateAdmin = async (req) => {
         phone: true,
         email: true,
         nik: true,
-        photoPath: true,
+        imagePath: true,
         isActive: true, 
         shopId: true
       }
@@ -821,7 +859,7 @@ const updateAdmin = async (req) => {
     await prismaClient.userHistory.create({
       data: {
         userId: staffId,
-        description: `Superadmin '${user.name}' mengubah ${changes.join(', ')}`
+        description: `Superadmin '${request.user.name}' mengubah ${changes.join(', ')}`
       }
     });
 
@@ -833,7 +871,7 @@ const updateAdmin = async (req) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -841,26 +879,26 @@ const updateAdmin = async (req) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal update admin", {
       originalError: e.message,
       stack: e.stack
     });
   }
 };
 
-const updateStaff = async (req) => {
+const updateStaff = async (request) => {
   try{
-    const staffId = parseInt(req.params);
+    const staffId = parseInt(request.params.staffId);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID staff tidak valid");
     }
 
-    const user = req.user;
+    const user = request.user;
     if (user.role !== 'superadmin') {
       throw new ResponseError(403, "Hanya superadmin yang dapat mengubah data staff");
     }
 
-    const updateRequest = validate(updateStaffValidation, req.body);
+    const updaterequest = validate(updateStaffValidation, request.body);
 
     const staff = await prismaClient.user.findFirst({
       where: {
@@ -875,11 +913,11 @@ const updateStaff = async (req) => {
     }
 
     const changes = [];
-    const fields = ['name', 'email', 'phone', 'nik', 'photoPath'];
+    const fields = ['name', 'email', 'phone', 'nik', 'imagePath', 'role'];
 
     for (const field of fields) {
       const oldValue = staff[field];
-      const newValue = updateRequest[field];
+      const newValue = updaterequest[field];
 
       if (
         typeof newValue !== 'undefined' &&
@@ -897,7 +935,7 @@ const updateStaff = async (req) => {
 
     const updated = await prismaClient.user.update({
       where: { id: staffId },
-      data: updateRequest,
+      data: updaterequest,
       select: {
         id: true,
         username: true,
@@ -906,7 +944,7 @@ const updateStaff = async (req) => {
         phone: true,
         email: true,
         nik: true,
-        photoPath: true,
+        imagePath: true,
         isActive: true, 
         shopId: true
       }
@@ -915,7 +953,7 @@ const updateStaff = async (req) => {
     await prismaClient.userHistory.create({
       data: {
         userId: staffId,
-        description: `Superadmin '${user.name}' mengubah ${changes.join(', ')}`
+        description: `Superadmin '${request.user.name}' mengubah ${changes.join(', ')}`
       }
     });
 
@@ -927,7 +965,7 @@ const updateStaff = async (req) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -935,7 +973,7 @@ const updateStaff = async (req) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal update staff", {
       originalError: e.message,
       stack: e.stack
     });
@@ -943,14 +981,14 @@ const updateStaff = async (req) => {
 };
 
 // ================================= SOFT DELETE =================================
-const softDeleteAdmin = async (req) => { 
+const softDeleteAdmin = async (request) => { 
   try {
-    const staffId = parseInt(req.params);
+    const staffId = parseInt(request.params.adminId); 
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID admin tidak valid");
     }
 
-    const user = req.user;
+    const user = request.user;
     if (user.role !== 'superadmin') {
       throw new ResponseError(403, "Hanya superadmin yang dapat menonaktifkan admin");
     }
@@ -971,7 +1009,7 @@ const softDeleteAdmin = async (req) => {
     // Hapus relasi admin dari toko
     await prismaClient.shop.updateMany({
       where: { adminId: staffId },
-      data: { adminId: null }
+      data: { adminId: request.user.id }
     });
 
     // Nonaktifkan user & hapus relasi tokonya
@@ -987,7 +1025,7 @@ const softDeleteAdmin = async (req) => {
     await prismaClient.userHistory.create({
       data: {
         userId: staffId,
-        description: `Admin dengan nama '${staff.name}' dinonaktifkan oleh superadmin '${user.name}'`,
+        description: `Admin dengan nama '${staff.name}' dinonaktifkan oleh superadmin '${request.user.name}'`,
       }
     });
 
@@ -999,7 +1037,7 @@ const softDeleteAdmin = async (req) => {
       throw e;
     }
     
-    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
       throw new ResponseError(400, "Kesalahan dalam permintaan database", {
         code: e.code,
         meta: e.meta,
@@ -1007,21 +1045,21 @@ const softDeleteAdmin = async (req) => {
       });
     }
     
-    throw new ResponseError(500, "Gagal mengambil data produk toko", {
+    throw new ResponseError(500, "Gagal menonaktifkan admin", {
       originalError: e.message,
       stack: e.stack
     });
   }
 };
 
-const softDeleteStaff = async (req) => {
+const softDeleteStaff = async (request) => {
   try{
-    const staffId = parseInt(req.params);
+    const staffId = parseInt(request.params.staffId);
     if (isNaN(staffId)) {
       throw new ResponseError(400, "ID staff tidak valid");
     }
 
-    const user = req.user;
+    const user = request.user;
     if (user.role !== 'superadmin') {
       throw new ResponseError(403, "Hanya superadmin yang dapat menonaktifkan staff");
     }
@@ -1046,22 +1084,38 @@ const softDeleteStaff = async (req) => {
     await prismaClient.userHistory.create({
       data: {
         userId: staffId,
-        description: `Staff dengan nama '${staff.name}' dinonaktifkan oleh superadmin '${user.name}'`,
+        description: `Staff dengan nama '${staff.name}' dinonaktifkan oleh superadmin '${request.user.name}'`,
       }
     });
 
     return { message: "Staff berhasil dinonaktifkan" };
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal menonaktifkan staff", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal menonaktifkan staff", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
 // ================================= TRANSFER =================================
-const transferAdminToShop = async (req) => {
+const transferAdminToShop = async (request) => {
   try {
-    const user = req.user;
-    const { adminId, targetShopId } = req.body;
+    const user = request.user;
+    const { adminId, targetShopId } = request.body;
 
     if (user.role !== 'superadmin') {
       throw new ResponseError(403, "Hanya superadmin yang dapat mentransfer admin");
@@ -1073,7 +1127,8 @@ const transferAdminToShop = async (req) => {
       throw new ResponseError(400, "adminId dan targetShopId harus berupa angka");
     }
 
-    const admin = await prismaClient.user.findFirst({
+    // Cari admin yang akan dipindahkan
+    const adminToTransfer = await prismaClient.user.findFirst({
       where: {
         id: parsedAdminId,
         role: "admin",
@@ -1081,10 +1136,11 @@ const transferAdminToShop = async (req) => {
       }
     });
 
-    if (!admin) {
+    if (!adminToTransfer) {
       throw new ResponseError(404, "Admin yang akan dipindah tidak ditemukan");
     }
 
+    // Cari target shop dan adminnya (jika ada)
     const targetShop = await prismaClient.shop.findUnique({
       where: { id: parsedTargetShopId },
       include: {
@@ -1096,80 +1152,85 @@ const transferAdminToShop = async (req) => {
       throw new ResponseError(404, "Toko tujuan tidak ditemukan");
     }
 
-    const currentShopId = admin.shopId;
+    // Cari shop asal admin yang akan dipindahkan
+    const sourceShop = await prismaClient.shop.findFirst({
+      where: {
+        adminId: parsedAdminId
+      }
+    });
 
-    // CASE 1: targetShop sudah punya admin (swap)
-    if (targetShop.admin && targetShop.admin.id !== admin.id) {
+    // Jika target shop sudah memiliki admin yang berbeda
+    if (targetShop.admin && targetShop.admin.id !== parsedAdminId) {
       const previousAdmin = targetShop.admin;
-
-      // Update toko asal admin A, jika ada
-      if (currentShopId) {
+      
+      // Jika ada shop asal, pindahkan previousAdmin ke shop asal
+      if (sourceShop) {
         await prismaClient.shop.update({
-          where: { id: currentShopId },
-          data: {
-            adminId: previousAdmin.id
-          }
+          where: { id: sourceShop.id },
+          data: { adminId: previousAdmin.id }
+        });
+      } else {
+        // Jika tidak ada shop asal, lepas previousAdmin dari shop manapun
+        await prismaClient.shop.updateMany({
+          where: { adminId: previousAdmin.id },
+          data: { adminId: null }
         });
       }
-
-      // Update shopId admin yang lama (B)
-      await prismaClient.user.update({
-        where: { id: previousAdmin.id },
-        data: {
-          shopId: currentShopId || null
-        }
-      });
 
       await prismaClient.userHistory.create({
         data: {
           userId: previousAdmin.id,
-          description: `Superadmin '${user.name}' memindahkan admin '${previousAdmin.name}' ke toko asal '${currentShopId ?? "-"}' sebagai bagian dari transfer`
+          description: `Superadmin '${user.name}' memindahkan admin '${previousAdmin.name}' ke toko '${sourceShop?.name || "(tidak ada toko)"}'`
         }
       });
-    } else {
-      // CASE 2: jika toko tujuan kosong, lepas admin lama dari toko asal
-      if (currentShopId) {
-        await prismaClient.shop.update({
-          where: { id: currentShopId },
-          data: { adminId: null }
-        });
-      }
+    } else if (sourceShop) {
+      // Jika tidak ada admin di target shop atau admin yang sama, kosongkan shop asal
+      await prismaClient.shop.update({
+        where: { id: sourceShop.id },
+        data: { adminId: null }
+      });
     }
 
-    // Update targetShop dengan admin baru
+    // Update target shop dengan admin baru
     await prismaClient.shop.update({
       where: { id: parsedTargetShopId },
-      data: {
-        adminId: admin.id
-      }
-    });
-
-    // Update admin A dengan shop baru
-    await prismaClient.user.update({
-      where: { id: admin.id },
-      data: {
-        shopId: parsedTargetShopId
-      }
+      data: { adminId: parsedAdminId }
     });
 
     await prismaClient.userHistory.create({
       data: {
-        userId: admin.id,
-        description: `Superadmin '${user.name}' memindahkan '${admin.name}' ke toko '${targetShop.name}'`
+        userId: parsedAdminId,
+        description: `Superadmin '${user.name}' memindahkan admin '${adminToTransfer.name}' ke toko '${targetShop.name}'`
       }
     });
 
-    return { message: `Admin '${admin.name}' berhasil dipindahkan ke toko '${targetShop.name}'` };
+    return { message: `Admin '${adminToTransfer.name}' berhasil dipindahkan ke toko '${targetShop.name}'` };
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mentransfer admin", e);
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal transfer admin", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
-const transferMultipleStaff = async (req) => {
+const transferMultipleStaff = async (request) => {
   try {
-    const { staffIds, targetShopId } = req.body;
-    const requester = req.user;
+    const { staffIds, targetShopId } = request.body;
+    const requester = request.user;
 
     if (requester.role !== "superadmin") {
       throw new ResponseError(403, "Hanya superadmin yang dapat mentransfer staff");
@@ -1182,21 +1243,22 @@ const transferMultipleStaff = async (req) => {
     const parsedStaffIds = staffIds.map(id => parseInt(id)).filter(id => !isNaN(id));
     const parsedTargetShopId = parseInt(targetShopId);
 
-    // Pastikan toko tujuan valid dan punya admin
+    // Verifikasi toko tujuan
     const targetShop = await prismaClient.shop.findUnique({
       where: { id: parsedTargetShopId },
       include: { admin: true }
     });
 
-    if (!targetShop || !targetShop.admin) {
-      throw new ResponseError(400, "Toko tidak ditemukan atau belum memiliki admin");
+    if (!targetShop) {
+      throw new ResponseError(404, "Toko tujuan tidak ditemukan");
     }
 
+    // Dapatkan staff yang valid
     const validStaff = await prismaClient.user.findMany({
       where: {
         id: { in: parsedStaffIds },
         isActive: true,
-        role: { in: ["kasir", "gudang"] }
+        role: { in: ["kasir", "gudang"] } // Hanya transfer staff dengan role ini
       }
     });
 
@@ -1207,23 +1269,26 @@ const transferMultipleStaff = async (req) => {
     const updates = [];
 
     for (const staff of validStaff) {
-      // Skip jika sudah di toko dan admin yang sama
-      if (staff.shopId === parsedTargetShopId && staff.adminId === targetShop.admin.id) continue;
+      // Skip jika staff sudah di toko yang sama
+      if (staff.shopId === parsedTargetShopId) continue;
 
-      updates.push(prismaClient.user.update({
-        where: { id: staff.id },
-        data: {
-          shopId: parsedTargetShopId,
-          adminId: targetShop.admin.id
-        }
-      }));
+      updates.push(
+        prismaClient.user.update({
+          where: { id: staff.id },
+          data: {
+            shopId: parsedTargetShopId // Hanya update shopId
+          }
+        })
+      );
 
-      updates.push(prismaClient.userHistory.create({
-        data: {
-          userId: staff.id,
-          description: `Staff '${staff.name}' dipindahkan ke toko '${targetShop.name}' di bawah admin '${targetShop.admin.name}' oleh superadmin '${requester.name}'`
-        }
-      }));
+      updates.push(
+        prismaClient.userHistory.create({
+          data: {
+            userId: staff.id,
+            description: `Staff '${staff.name}' dipindahkan ke toko '${targetShop.name}' oleh superadmin '${requester.name}'`
+          }
+        })
+      );
     }
 
     if (updates.length === 0) {
@@ -1232,10 +1297,29 @@ const transferMultipleStaff = async (req) => {
 
     await prismaClient.$transaction(updates);
 
-    return { message: `${updates.length / 2} staff berhasil ditransfer ke toko '${targetShop.name}'` };
+    return { 
+      message: `${updates.length / 2} staff berhasil ditransfer ke toko '${targetShop.name}'`,
+      targetShopAdmin: targetShop.admin ? `Admin toko: ${targetShop.admin.name}` : 'Toko belum memiliki admin'
+    };
   } catch (e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mentransfer staff", e);
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal transfer staff", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
