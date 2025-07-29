@@ -3,7 +3,7 @@ import adminController from "../controller/admin_controller.js"
 import { authMiddleware } from "../middleware/auth_middleware.js"
 
 const adminRouter = new express.Router()
-adminRouter.post('/login/admin', adminController.loginAdmin)
+adminRouter.post('/admin/login', adminController.loginAdmin)
 adminRouter.post('/admin/registrasi/staff-gudang', authMiddleware, adminController.registerGudang)
 adminRouter.post('/admin/registrasi/staff-kasir', authMiddleware, adminController.registerKasir)
 adminRouter.get('/admin/staff-gudang', authMiddleware, adminController.getGudangStaff)
@@ -13,8 +13,11 @@ adminRouter.get('/admin/staff/:staffId', authMiddleware, adminController.getStaf
 adminRouter.get('/admin/products/:productId', authMiddleware, adminController.getProductById)
 adminRouter.patch('/admin/update-staff/:staffId', authMiddleware, adminController.updateStaff)
 adminRouter.patch('/admin/update-admin', authMiddleware, adminController.updateAdminProfile)
+adminRouter.post('/admin/reset-password', adminController.resetPasswordAdmin)
 adminRouter.delete('/admin/delete-staff/:staffId', authMiddleware, adminController.softDeleteStaff)
 adminRouter.post('/admin/transfer-staff', authMiddleware, adminController.transferMultipleStaff)
+adminRouter.post('/admin/logout', authMiddleware, adminController.logoutAdmin)
+
 
 export{
     adminRouter

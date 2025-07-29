@@ -31,7 +31,7 @@ const registerShopValidation = Joi.object({
 // LOGIN 
 const login = Joi.object({
     username : Joi.string().max(20).required(),
-    password : Joi.string().max(20).required(), 
+    password : Joi.string().min(6).max(20).required(), 
 })
 
 // UPDATE
@@ -60,6 +60,11 @@ const updateStaffValidation = Joi.object({
     role : Joi.string().max(10).optional().allow(null)
 })
 
+const resetPasswordValidation = Joi.object({
+    username : Joi.string().max(20).required(),
+    password : Joi.string().min(6).max(20).required()
+})
+
 export { 
     registerSuperadminValidation, 
     registerAdminValidation,
@@ -67,5 +72,6 @@ export {
     updateSuperadminValidation,
     updateAdminValidation, 
     updateStaffValidation,
-    registerShopValidation
+    registerShopValidation,
+    resetPasswordValidation
 }

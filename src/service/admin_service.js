@@ -3,7 +3,7 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { registerStaff, updateStaffValidation, login, updateAdminValidation } from "../validation/admin_validation.js";
+import { registerStaff, updateStaffValidation, login, updateAdminValidation, resetPasswordValidation } from "../validation/admin_validation.js";
 
 // ================================= REGISTRASI =================================
 const registerGudang = async (request) => {
@@ -20,7 +20,7 @@ const registerGudang = async (request) => {
 
     register.password = await bcrypt.hash(register.password, 10);
 
-    register.adminId = request.user.id;
+    register.shopId = request.user.shopId;
 
     register.role = "gudang";
 
@@ -30,14 +30,30 @@ const registerGudang = async (request) => {
             username: true,
             name: true,
             role: true,
-            adminId: true
+            shopId : true
         }
     });
 
     return result;
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi staff gudang", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal registrasi staff gudang", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }    
 };
 
@@ -55,7 +71,7 @@ const registerKasir = async (request) => { // HANYA WEBSITE ADMIN
 
     register.password = await bcrypt.hash(register.password, 10);
 
-    register.adminId = request.user.id;
+    register.shopId = request.user.shopId;
 
     register.role = "kasir";
 
@@ -65,21 +81,37 @@ const registerKasir = async (request) => { // HANYA WEBSITE ADMIN
             username: true,
             name: true,
             role: true,
-            adminId: true
+            shopId: true
         }
     });
 
     return result;
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal registrasi staff kasir", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal registrasi staff kasir", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
 // ================================= LOGIN =================================
 const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
   try{
-    const loginrequest = validate(login, request);
+    const loginrequest = validate(login, request.body);
 
     const user = await prismaClient.user.findUnique({
       where: { username: loginrequest.username },
@@ -93,7 +125,7 @@ const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
     });
 
     if (!user || !user.isActive) {
-      throw new ResponseError(401, "Username atau password salah");
+      throw new ResponseError(401, "User sudah tidak aktif");
     }
 
     const passwordIsValid = await bcrypt.compare(loginrequest.password, user.password);
@@ -118,10 +150,26 @@ const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
 
     return { token };
   }catch(e){
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Login gagal", e)
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownrequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal login admin", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
-}
+};
 
 // ================================= GET ALL ================================= 
 const getGudangStaff = async (request) => {
@@ -136,12 +184,34 @@ const getGudangStaff = async (request) => {
       sortOrder = 'asc'
     } = request.query;
 
+    // Dapatkan adminId dari user yang sedang login
+    const adminId = request.user.id;
+    if (!adminId) {
+      throw new ResponseError(400, "User ID is required");
+    }
+
+    // Cari shop berdasarkan adminId
+    const shop = await prismaClient.shop.findFirst({
+      where: {
+        adminId: adminId
+      },
+      select: {
+        id: true,
+        name: true
+      }
+    });
+
+    if (!shop) {
+      throw new ResponseError(404, "Shop not found for this admin");
+    }
+
     // Format roles ke array jika berupa string
     const rolesArray = Array.isArray(roles) ? roles : [roles].filter(Boolean);
 
     const where = {
       role: { in: rolesArray },
-      isActive: isActive === 'true' || isActive === true
+      isActive: isActive === 'true' || isActive === true,
+      shopId: shop.id // Filter staff berdasarkan shopId yang ditemukan
     };
 
     // Tambahkan filter search jika ada
@@ -163,9 +233,9 @@ const getGudangStaff = async (request) => {
         phone: true,
         email: true,
         nik: true,
-        photoPath: true,
+        imagePath: true,
         isActive: true,
-        admin: {
+        shop: {
           select: {
             name: true
           }
@@ -183,8 +253,8 @@ const getGudangStaff = async (request) => {
     return {
       data: staff.map((s) => ({
         ...s,
-        adminName: s.admin?.name || null,
-        admin: undefined
+        shopName: s.shop?.name || null,
+        shop: undefined
       })),
       pagination: {
         currentPage: page,
@@ -194,8 +264,24 @@ const getGudangStaff = async (request) => {
       }
     };
   } catch(e) {
-    if (e instanceof ResponseError) throw e;
-    throw new ResponseError(500, "Gagal mengambil daftar staff", e);
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal mengambil data staff gudang", {
+      originalError: e.message,
+      stack: e.stack
+    });
   }
 };
 
@@ -606,6 +692,70 @@ const updateAdminProfile = async (req) => {
   }
 };
 
+const resetPasswordAdmin = async (request) => {
+  try{
+     // Validasi input
+    const input = validate(resetPasswordValidation, request.body);
+    const { username, password } = input;
+
+    // Cari user berdasarkan username
+    const user = await prismaClient.user.findUnique({
+      where: { username }
+    });
+
+    if (!user) {
+      throw new ResponseError(404, "User dengan username tersebut tidak ditemukan");
+    }
+
+    // Hash password baru
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Gunakan transaction untuk atomic operation
+    const [updatedUser] = await prismaClient.$transaction([
+      // Update password user
+      prismaClient.user.update({
+        where: { username },
+        data: { password: hashedPassword }
+      }),
+      
+      // Hapus semua token user terkait
+      prismaClient.userToken.deleteMany({
+        where: { userId: user.id }
+      })
+    ]);
+
+    return {
+      success: true,
+      message: "Password berhasil direset dan semua sesi login dihapus",
+      data: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        username: updatedUser.username,
+        tokensDeleted: true // Flag bahwa token dihapus
+      }
+    };
+  }catch(e){
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal reset password", {
+      originalError: e.message,
+      stack: e.stack
+    });
+  }
+}
+
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req) => {
   try{
@@ -724,6 +874,48 @@ const transferMultipleStaff = async (req) => {
   }
 };
 
+// ================================= LOGIN =================================
+const logoutAdmin = async (request) => {
+   try {
+      // Dapatkan user ID dari middleware (asumsi sudah di-attach oleh auth middleware)
+      const userId = request.user.id;
+  
+      // Hapus semua token user terkait
+      const deletedTokens = await prismaClient.userToken.deleteMany({
+        where: { userId }
+      });
+  
+      return {
+        success: true,
+        message: "Logout berhasil",
+        data: {
+          userId,
+          tokensDeleted: deletedTokens.count // Jumlah token yang dihapus
+        }
+      };
+  
+    } catch(e) {
+      console.error('Error :', e);
+      
+      if (e instanceof ResponseError) {
+        throw e;
+      }
+      
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+          code: e.code,
+          meta: e.meta,
+          cause: e
+        });
+      }
+      
+      throw new ResponseError(500, "Gagal logout", {
+        originalError: e.message,
+        stack: e.stack
+      });
+    }
+}
+
 export default {
     registerGudang, 
     registerKasir, 
@@ -736,5 +928,7 @@ export default {
     updateStaff, 
     updateAdminProfile,
     softDeleteStaff,
-    transferMultipleStaff
+    transferMultipleStaff,
+    resetPasswordAdmin,
+    logoutAdmin
 }

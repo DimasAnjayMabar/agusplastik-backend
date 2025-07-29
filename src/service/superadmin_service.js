@@ -3,7 +3,7 @@ import {v4 as uuid} from "uuid";
 import { prismaClient } from "../application/database.js"
 import { ResponseError } from "../error/response_error.js"
 import { validate } from "../validation/validation.js"
-import { registerSuperadminValidation, login, updateAdminValidation, updateStaffValidation, registerAdminValidation, updateSuperadminValidation, registerShopValidation } from "../validation/superadmin_validation.js";
+import { registerSuperadminValidation, login, updateAdminValidation, updateStaffValidation, registerAdminValidation, updateSuperadminValidation, registerShopValidation, resetPasswordValidation } from "../validation/superadmin_validation.js";
 
 // ================================= REGISTRASI =================================
 const registerSuperadmin = async (request) => {
@@ -292,7 +292,7 @@ const loginSuperadmin = async (request) => {
 
     return { token: newToken };
   } catch(e) {
-console.error('Error :', e);
+    console.error('Error :', e);
     
     if (e instanceof ResponseError) {
       throw e;
@@ -980,6 +980,71 @@ const updateStaff = async (request) => {
   }
 };
 
+const resetPasswordSuperadmin = async (request) => {
+  try {
+    // Validasi input
+    const input = validate(resetPasswordValidation, request.body);
+    const { username, password } = input;
+
+    // Cari user berdasarkan username
+    const user = await prismaClient.user.findUnique({
+      where: { username }
+    });
+
+    if (!user) {
+      throw new ResponseError(404, "User dengan username tersebut tidak ditemukan");
+    }
+
+    // Hash password baru
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Gunakan transaction untuk atomic operation
+    const [updatedUser] = await prismaClient.$transaction([
+      // Update password user
+      prismaClient.user.update({
+        where: { username },
+        data: { password: hashedPassword }
+      }),
+      
+      // Hapus semua token user terkait
+      prismaClient.userToken.deleteMany({
+        where: { userId: user.id }
+      })
+    ]);
+
+    return {
+      success: true,
+      message: "Password berhasil direset dan semua sesi login dihapus",
+      data: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        username: updatedUser.username,
+        tokensDeleted: true // Flag bahwa token dihapus
+      }
+    };
+
+  } catch(e) {
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal reset password", {
+      originalError: e.message,
+      stack: e.stack
+    });
+  }
+};
+
 // ================================= SOFT DELETE =================================
 const softDeleteAdmin = async (request) => { 
   try {
@@ -1323,6 +1388,48 @@ const transferMultipleStaff = async (request) => {
   }
 };
 
+// ================================= LOGOUT =================================
+const logoutSuperadmin = async (request) => {
+  try {
+    // Dapatkan user ID dari middleware (asumsi sudah di-attach oleh auth middleware)
+    const userId = request.user.id;
+
+    // Hapus semua token user terkait
+    const deletedTokens = await prismaClient.userToken.deleteMany({
+      where: { userId }
+    });
+
+    return {
+      success: true,
+      message: "Logout berhasil",
+      data: {
+        userId,
+        tokensDeleted: deletedTokens.count // Jumlah token yang dihapus
+      }
+    };
+
+  } catch(e) {
+    console.error('Error :', e);
+    
+    if (e instanceof ResponseError) {
+      throw e;
+    }
+    
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new ResponseError(400, "Kesalahan dalam permintaan database", {
+        code: e.code,
+        meta: e.meta,
+        cause: e
+      });
+    }
+    
+    throw new ResponseError(500, "Gagal logout", {
+      originalError: e.message,
+      stack: e.stack
+    });
+  }
+};
+
 export default{
   registerSuperadmin, 
   registerAdmin,
@@ -1340,5 +1447,7 @@ export default{
   transferAdminToShop,
   transferMultipleStaff,
   registerShop,
-  loginSuperadminSilent
+  loginSuperadminSilent,
+  resetPasswordSuperadmin,
+  logoutSuperadmin
 }

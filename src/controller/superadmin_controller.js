@@ -149,6 +149,18 @@ const updateAdmin = async (req, res, next) => {
     }
 }
 
+const resetPasswordSuperadmin = async (req, res, next) => { 
+    try{
+        const result = await superadminService.resetPasswordSuperadmin(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 const updateStaff = async (req, res, next) => { 
     try{
         const result = await superadminService.updateStaff(req)
@@ -211,6 +223,19 @@ const transferMultipleStaff = async (req, res, next) => {
     }
 }
 
+// ================================= LOGOUT  =================================
+const logoutSuperadmin = async (req, res, next) => { 
+    try{
+        const result = await superadminService.logoutSuperadmin(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 export default {
     registerSuperadmin, 
   registerAdmin,
@@ -228,5 +253,7 @@ export default {
   transferAdminToShop,
   transferMultipleStaff,
   registerShop,
-  loginSuperadminSilent
+  loginSuperadminSilent,
+  resetPasswordSuperadmin,
+  logoutSuperadmin
 }

@@ -3,9 +3,9 @@ import superAdminController from "../controller/superadmin_controller.js"
 import { authMiddleware } from "../middleware/auth_middleware.js"
 
 const superAdminRouter = new express.Router()
-superAdminRouter.post('/registrasi/superadmin', superAdminController.registerSuperadmin)
-superAdminRouter.post('/login/superadmin', superAdminController.loginSuperadmin)
-superAdminRouter.get('/login/superadmin-silent', superAdminController.loginSuperadminSilent)
+superAdminRouter.post('/superadmin/registrasi', superAdminController.registerSuperadmin)
+superAdminRouter.post('/superadmin/login', superAdminController.loginSuperadmin)
+superAdminRouter.post('/superadmin/login-silent', superAdminController.loginSuperadminSilent)
 superAdminRouter.post('/superadmin/registrasi/admin/:shopId', authMiddleware, superAdminController.registerAdmin)
 superAdminRouter.post('/superadmin/registrasi/toko', authMiddleware, superAdminController.registerShop)
 superAdminRouter.get('/superadmin/get-all-shop', authMiddleware, superAdminController.getAllShop)
@@ -16,10 +16,12 @@ superAdminRouter.get('/superadmin/shop/products/:shopId', authMiddleware, superA
 superAdminRouter.patch('/superadmin/update-superadmin', authMiddleware, superAdminController.updateSuperadminProfile)
 superAdminRouter.patch('/superadmin/update-admin/:adminId', authMiddleware, superAdminController.updateAdmin)
 superAdminRouter.patch('/superadmin/update-staff/:staffId', authMiddleware, superAdminController.updateStaff)
+superAdminRouter.patch('/superadmin/reset-password', superAdminController.resetPasswordSuperadmin)
 superAdminRouter.delete('/superadmin/delete-admin/:adminId', authMiddleware, superAdminController.softDeleteAdmin)
 superAdminRouter.delete('/superadmin/delete-staff/:staffId', authMiddleware, superAdminController.softDeleteStaff)
 superAdminRouter.post('/superadmin/transfer-admin', authMiddleware, superAdminController.transferAdminToShop)
 superAdminRouter.post('/superadmin/transfer-staff', authMiddleware, superAdminController.transferMultipleStaff)
+superAdminRouter.post('/superadmin/logout', authMiddleware, superAdminController.logoutSuperadmin)
 
 export{
     superAdminRouter

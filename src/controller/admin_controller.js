@@ -28,7 +28,7 @@ const registerKasir = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
 // ================================= LOGIN =================================
 const loginAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
-        const result = await adminService.loginAdmin(req.body)
+        const result = await adminService.loginAdmin(req)
 
         res.status(200).json({
             data : result
@@ -125,6 +125,18 @@ const updateAdminProfile = async (req, res, next) => { // HANYA UNTUK WEBSITE AD
     }
 }
 
+const resetPasswordAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{ 
+        const result = await adminService.resetPasswordAdmin(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 // ================================= SOFT DELETE =================================
 const softDeleteStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
     try{
@@ -151,6 +163,19 @@ const transferMultipleStaff = async (req, res, next) => { // HANYA UNTUK WEBSITE
     }
 }
 
+// ================================= LOGOUT =================================
+const logoutAdmin = async (req, res, next) => { // HANYA UNTUK WEBSITE ADMIN
+    try{
+        const result = await adminService.logoutAdmin(req)
+
+        res.status(200).json({
+            data : result
+        })
+    }catch(e){
+        next(e)
+    }
+}
+
 export default {
     registerGudang, 
     registerKasir, 
@@ -163,5 +188,7 @@ export default {
     updateStaff, 
     updateAdminProfile,
     softDeleteStaff,
-    transferMultipleStaff
+    transferMultipleStaff,
+    resetPasswordAdmin,
+    logoutAdmin
 }

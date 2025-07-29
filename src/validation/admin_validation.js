@@ -17,7 +17,7 @@ const login = Joi.object({
     password : Joi.string().max(20).required(), 
 })
 
-// UPDATE STAFF
+// UPDATE 
 const updateStaffValidation = Joi.object({
     name : Joi.string().max(100).optional(),
     email : Joi.string().max(100).email().optional().allow(null), 
@@ -35,6 +35,11 @@ const updateAdminValidation = Joi.object({
     imagePath : Joi.string().optional().allow(null),
 })
 
+const resetPasswordValidation = Joi.object({
+    username : Joi.string().max(20).required(),
+    password : Joi.string().min(6).max(20).required()
+})
+
 export{
-    registerStaff, updateStaffValidation, login, updateAdminValidation
+    registerStaff, updateStaffValidation, login, updateAdminValidation, resetPasswordValidation
 }
