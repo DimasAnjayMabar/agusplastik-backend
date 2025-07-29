@@ -108,6 +108,8 @@ const registerKasir = async (request) => { // HANYA WEBSITE ADMIN
   }
 };
 
+//to do : tambahkan shopId berdasarkan query request.user.id ke adminId model shop
+
 // ================================= LOGIN =================================
 const loginAdmin = async (request) => { // HANYA WEBSITE ADMIN
   try{
